@@ -4,7 +4,7 @@ from sys import argv
 from collections import defaultdict
 from pathlib import Path
 
-__version__ = '2.0.1'
+__version__ = '2.0.2'
 GLOBALS_KEY = '_globals'
 
 
@@ -328,9 +328,9 @@ class DictConfig(dict):
                 import pickle
                 if isinstance(file, str):
                     with open(filename, 'rb') as f:
-                        cfg = pickle.load(f)
+                        cfg = pickle.load(f, **load_kwargs)
                 else:
-                    cfg = pickle.load(file)
+                    cfg = pickle.load(file, **load_kwargs)
             elif file_type == 'xml':
                 from lxml import etree
                 root = etree.parse(file, **load_kwargs).getroot()
@@ -384,14 +384,14 @@ class DictConfig(dict):
             import pickle
             if isinstance(file, str):
                 with open(filename, 'wb') as f:
-                    pickle.dump(self, f)
+                    pickle.dump(self, f, **kwargs)
             else:
-                pickle.dump(self, file)
+                pickle.dump(self, file, **kwargs)
         elif file_type == 'xml':
             from lxml import etree
             root = self._cfg2xml(self, 'config', etree, self.globals,
                                  [] if include_from_arguments else self.from_arguments)
-            etree.ElementTree(root).write(file, pretty_print=True, encoding='utf-8', xml_declaration=True)
+            etree.ElementTree(root).write(file, encoding='utf-8', xml_declaration=True, **kwargs)
 
     def update_from_arguments(self, args: Union[Dict[str, list], list] = None, aliases: Dict[str, str] = None,
                               force_update=False):

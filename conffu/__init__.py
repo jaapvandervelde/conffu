@@ -1,2 +1,1 @@
-from ._config import DictConfig, Config
-
+from ._config import DictConfig, Config, __version__

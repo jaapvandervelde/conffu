@@ -58,10 +58,18 @@ There's many more options, check the documentation for more examples.
 
 ## License
 
-This project is licensed under the MIT license. See [LICENSE.txt](https://github.com/jaapvandervelde/gohlkegrabber/blob/master/LICENSE.txt).
+This project is licensed under the MIT license. See [LICENSE.txt](https://gitlab.com/Jaap.vanderVelde/conffu/-/blob/master/LICENSE.txt).
 
 
 ## Changelog
 
-- 2.0.0<br>First publicly released version after a major rewrite.
-- 2.0.1<br>Fixed pickle bug with sub-configs and added a test for the pickle round-trip.
+- 2.0.0 
+  <br/>First publicly released version after a major rewrite.
+- 2.0.1 
+  <br/>Fixed pickle bug with sub-configs and added a test for the pickle round-trip.
+- 2.0.2 
+  <br/>Passing `load_kwargs` and `kwargs` to pickle and XML load and save methods
+  <br/>removed default `pretty_print=True` from XML save method, should be passed in `kwargs`
+  <br/>updated faulty reference to license document from other project (no change in license)
+  <br/>centralised version references, to avoid version mismatches
+  <br/>bugfix `extras_require` for `lxml`
