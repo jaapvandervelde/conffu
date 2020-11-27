@@ -18,7 +18,7 @@ setuptools.setup(
     download_url='https://gitlab.com/Jaap.vanderVelde/conffu/repository/archive.zip?ref='+__version__,
     keywords=['package', 'download', 'json', 'configuration', 'CLI', 'parameters'],
     extras_require={
-        'lxml>=4.6.0': 'xml'
+        'xml': ['lxml>=4.6.0']
     },
     classifiers=[
         'Development Status :: 4 - Beta',

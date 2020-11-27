@@ -4,7 +4,7 @@ from sys import argv
 from collections import defaultdict
 from pathlib import Path
 
-__version__ = '2.0.2'
+__version__ = '2.0.3'
 GLOBALS_KEY = '_globals'
 
 
