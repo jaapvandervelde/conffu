@@ -6,7 +6,7 @@ with open("README.md", "r") as fh:
 setuptools.setup(
     name="conffu",
     packages=['conffu'],
-    version="2.0.0",
+    version="2.0.1",
     license='MIT',
     author="BMT, Jaap van der Velde",
     author_email="jaap.vandervelde@bmtglobal.com",
@@ -14,7 +14,7 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url='https://gitlab.com/Jaap.vanderVelde/conffu',
-    download_url='https://gitlab.com/Jaap.vanderVelde/conffu/repository/archive.zip?ref=2.0.0',
+    download_url='https://gitlab.com/Jaap.vanderVelde/conffu/repository/archive.zip?ref=2.0.1',
     keywords=['package', 'download', 'json', 'configuration', 'CLI', 'parameters'],
     extras_requires={
         'lxml>=4.6.0': 'xml'

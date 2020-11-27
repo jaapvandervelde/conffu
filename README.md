@@ -64,3 +64,4 @@ This project is licensed under the MIT license. See [LICENSE.txt](https://github
 ## Changelog
 
 - 2.0.0<br>First publicly released version after a major rewrite.
+- 2.0.1<br>Fixed pickle bug with sub-configs and added a test for the pickle round-trip.
