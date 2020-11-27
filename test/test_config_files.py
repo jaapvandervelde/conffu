@@ -53,3 +53,10 @@ class TestConfig(unittest.TestCase):
         cfg = Config.from_file(Path(self.tmpdir.name) / 'config_copy.xml')
         self._check_config(cfg)
         self.assertEqual(cfg, self._cfg)
+
+    def test_pickle_roundtrip(self):
+        self._check_config(self._cfg)
+        self._cfg.save(Path(self.tmpdir.name) / 'config_copy.pickle')
+        cfg = Config.from_file(Path(self.tmpdir.name) / 'config_copy.pickle')
+        self._check_config(cfg)
+        self.assertEqual(cfg, self._cfg)

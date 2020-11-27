@@ -205,17 +205,19 @@ class DictConfig(dict):
             except KeyError:
                 self[keys[:-1]] = self.__class__({keys[-1]: value})
 
-    def dict_copy_with_globals(self, skip_lists: bool = False) -> dict:
+    def dict_copy(self, skip_lists: bool = False, with_globals: bool = True) -> dict:
         """
         Copy the DictConfig as a dict, recursively (turning nested DictConfig into dict as well)
         :param skip_lists: if set, dictionaries in lists will be ignored (not converted)
+        :param with_globals: if set, globals will be included under the '_globals' key
         :return: a dictionary copy of self
         """
         # constructs a dict copy
         result = dict(self)
         # recurse into the copy, replacing DictConfig with dict
         self._configs_to_dict(result, skip_lists=skip_lists)
-        result[GLOBALS_KEY] = dict(self.globals)
+        if with_globals:
+            result[GLOBALS_KEY] = dict(self.globals)
         return result
 
     @classmethod
@@ -324,7 +326,11 @@ class DictConfig(dict):
                     cfg = cls(json.load(file, **load_kwargs), **kwargs)
             elif file_type == 'pickle':
                 import pickle
-                cfg = pickle.load(file)
+                if isinstance(file, str):
+                    with open(filename, 'rb') as f:
+                        cfg = pickle.load(f)
+                else:
+                    cfg = pickle.load(file)
             elif file_type == 'xml':
                 from lxml import etree
                 root = etree.parse(file, **load_kwargs).getroot()
@@ -356,13 +362,18 @@ class DictConfig(dict):
                 filename = file.name
             except AttributeError:
                 filename = None
+
         if file_type is None:
             file_type = Path(filename).suffix.lower()[1:]
-        data = self._configs_to_dict(self, skip_lists=False if 'skip_lists' not in kwargs else kwargs['skip_lists'])
-        if include_globals:
-            # force globals to be at the start of data
-            data = {GLOBALS_KEY: self.globals, **data}
+
         if file_type == 'json':
+            # create a dict-based copy of data
+            data = self._configs_to_dict(self.__class__(self),
+                                         skip_lists=False if 'skip_lists' not in kwargs else kwargs['skip_lists'])
+            if include_globals:
+                # force globals to be at the start of data
+                data = {GLOBALS_KEY: self.globals, **data}
+
             import json
             if isinstance(file, str):
                 with open(filename, 'w') as f:
@@ -371,7 +382,11 @@ class DictConfig(dict):
                 json.dump(data, file, **kwargs)
         elif file_type == 'pickle':
             import pickle
-            pickle.dump(self, file)
+            if isinstance(file, str):
+                with open(filename, 'wb') as f:
+                    pickle.dump(self, f)
+            else:
+                pickle.dump(self, file)
         elif file_type == 'xml':
             from lxml import etree
             root = self._cfg2xml(self, 'config', etree, self.globals,
