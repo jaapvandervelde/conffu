@@ -1,6 +1,5 @@
 .idea/
 dist/
-script/
 *.egg-info/
 *.py[ocd]
 MANIFEST
