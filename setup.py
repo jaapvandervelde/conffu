@@ -13,9 +13,9 @@ setuptools.setup(
     description="A simple, but powerful JSON, XML and command line configuration package",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url='https://github.com/jaapvandervelde/conffu',
-    download_url='https://github.com/jaapvandervelde/gohlkegrabber/archive/v0.2.8.tar.gz',
-    keywords=['package', 'download', 'gohlke', 'wheel'],
+    url='https://gitlab.com/Jaap.vanderVelde/conffu',
+    download_url='https://gitlab.com/Jaap.vanderVelde/conffu/repository/archive.zip?ref=2.0.0',
+    keywords=['package', 'download', 'json', 'configuration', 'CLI', 'parameters'],
     extras_requires={
         'lxml>=4.6.0': 'xml'
     },
