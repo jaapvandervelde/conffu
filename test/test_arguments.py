@@ -66,4 +66,3 @@ class TestConfig(unittest.TestCase):
         cfg = Config.from_file(StringIO('{"a": "1"}'), file_type='json').update_from_arguments(args)
         self.assertIsInstance(cfg['a'], str, msg='argument gets cast to type (str) of existing key')
         self.assertEqual(cfg['a'], "True", msg='cast argument without parameters should equal "True" in Config')
-

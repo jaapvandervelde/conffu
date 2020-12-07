@@ -1,6 +1,17 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+Changes to this package will be documented in this file.
+
+## [2.0.5] - (unreleased)
+
+### Added
+  - QoL scripts for developer
+
+### Fixed
+  - values with replacements strings would not get global replacements when required
+  - globals would get replaced when loading lists in configuration files with replacement strings
+  - more explicit testing of configuration loading and roundtrips
+  - incomplete docstrings 
 
 ## [2.0.4] - 2020-11-27
 

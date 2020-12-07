@@ -18,8 +18,9 @@ class TestConfig(unittest.TestCase):
             },
             "garply": {
                 "waldo": 1,
-                "fred": ["plugh", "xyzzy"]
-            }
+                "fred": ["plugh", "xyzzy", "{foo}", "{{foo}}"]
+            },
+            "thud": 42.0
         })
 
     def tearDown(self):
@@ -39,8 +40,9 @@ class TestConfig(unittest.TestCase):
         self.assertIn('waldo', cfg.garply, 'waldo should be in garply ({context})')
         self.assertEqual(1, cfg.garply.waldo, f'garply.waldo should be 1 (int) ({context})')
         self.assertIn('fred', cfg.garply, 'fred should be in garply ({context})')
-        self.assertEqual(['plugh', 'xyzzy'], cfg.garply.fred,
-                         f'garply.fred should be ["plugh", "xyzzy"] (list) ({context})')
+        self.assertEqual(['plugh', 'xyzzy', 'bar', '{foo}'], cfg.garply.fred,
+                         f'garply.fred should be ["plugh", "xyzzy", "bar", "{{foo}}"] (list) ({context})')
+        self.assertEqual(42.0, cfg.thud, f'thud should be 42.0 (float) ({context})')
 
     def test_json_roundtrip(self):
         self._cfg.save(Path(self.tmpdir.name) / 'config_copy.json')

@@ -4,7 +4,7 @@ from sys import argv
 from collections import defaultdict
 from pathlib import Path
 
-__version__ = '2.0.4'
+__version__ = '2.0.5'
 GLOBALS_KEY = '_globals'
 
 
@@ -66,12 +66,15 @@ class DictConfig(dict):
         def __missing__(self, key):
             return '{' + key + '}'
 
-    def _dict_cast(self, a_dict: dict, from_type: type, to_type: type, skip_lists: bool = False):
+    def _dict_cast(self, a_dict: dict, from_type: type, to_type: type, skip_lists: bool = False) -> dict:
         """
-        Replace every instance of from_type in a_dict with a to_type configured like self, recursively
+        Replace every instance of from_type in a_dict with a to_type configured like self, recursively so
         if to_type is self.__class__
-        :param a_dict: a variable inheriting from dict
-        :return:
+        :param a_dict: a variable inheriting from dict, the values of which should be casted
+        :param from_type: a dict type to look for (either dict, or the DictConfig descendent type of self, typically)
+        :param to_type: a dict type to cast to (either dict, or the DictConfig descendent type of self, typically)
+        :param skip_lists: whether dict elements of lists should be similarly cast, or left untouched
+        :return dict: the in-place modified a_dict is also returned
         """
         for key in a_dict:
             if isinstance(a_dict[key], from_type):
@@ -89,7 +92,8 @@ class DictConfig(dict):
                         if to_type is self.__class__
                         else to_type(self._dict_cast(part, from_type, to_type, skip_lists))
                     )
-                    for part in a_dict[key]
+                    # don't accidentally replace globals at this time, as a_dict[key] will access __getitem__
+                    for part in (a_dict._get_direct(key) if isinstance(a_dict, DictConfig) else a_dict[key])
                 ]
         return a_dict
 
@@ -153,6 +157,15 @@ class DictConfig(dict):
             return False
         return (len(keys) == 1) or (keys[1:] in self[keys[0]])
 
+    def _get_direct(self, key: str) -> Any:
+        """
+        Retrieve the item with (simple only) key from self and without performing global substitutions
+        :param key: a simple key, with no parts separated by periods
+        :return any: the value located with the compound key
+        :raises KeyError: if the key cannot be found (and self.no_key_error is True, None otherwise)
+        """
+        return dict.__getitem__(self, key)
+
     def __getitem__(self, key: str) -> Any:
         """
         Retrieve the item with (compound) key from self
@@ -178,7 +191,11 @@ class DictConfig(dict):
                     raise KeyError(f'Multi-part key, but `{keys[0]}` is not a dictionary or Config.')
             value = super(DictConfig, self).__getitem__(keys[0])
             if not isinstance(value, str) or self.globals is None:
-                return value
+                # for lists, replace globals for all elements
+                if isinstance(value, list) and self.globals is not None:
+                    return [x.format_map(self._Globals(self.globals)) for x in value]
+                else:
+                    return value
             else:
                 try:
                     return value.format_map(self._Globals(self.globals))
@@ -282,7 +299,7 @@ class DictConfig(dict):
         :param file_type: either a file extension ('json', etc.) or None (to use the suffix of `filename`)
         :param parse_args: whether to parse command line arguments to override 'cfg', list of args to override
         :param require_file: whether a configuration file is required (otherwise command line args only is accepted)
-        :param load_kwargs: a dictionary containing keyword arguments to pass to the load method for the format
+        :param load_kwargs: a dictionary containing keyword arguments to pass to the format-specific load method
         :param kwargs: additional keyword arguments passed to Config constructor
         :return: initialised DictConfig instance
         """
