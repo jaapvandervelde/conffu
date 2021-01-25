@@ -82,6 +82,17 @@ class TestConfig(unittest.TestCase):
         cfg['more'] = cfg['more']
         self.assertEqual(cfg['more'], None, 'with no_key_error, reading non-existent keys returns None')
 
+    def test_split_keys(self):
+        cfg = Config({'test': {'nested': 1}})
+        self.assertEqual(cfg['test.nested'], 1, 'compound keys work as index')
+        cfg = Config({'test.dot': {'extra': 1}}, no_compound_keys=True)
+        self.assertEqual(cfg['test.dot']['extra'], 1, 'keys with periods work without compound keys')
+        cfg = Config({'test.dot': {'extra..': 1}}, no_compound_keys=True)
+        self.assertEqual(cfg['test.dot']['extra..'], 1, 'keys with periods work without compound keys, on sub configs')
+        cfg = Config({'test': {'nested': 1}}, no_compound_keys=True)
+        with self.assertRaises(KeyError, msg='with no_compound_keys, compound keys raise an exception'):
+            cfg['test.nested'] = cfg['test.nested']
+
 
 if __name__ == '__main__':
     unittest.main()

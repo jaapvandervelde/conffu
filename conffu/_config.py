@@ -80,7 +80,8 @@ class DictConfig(dict):
             if isinstance(a_dict[key], from_type):
                 self._dict_cast(a_dict[key], from_type, to_type, skip_lists)
                 if to_type is self.__class__:
-                    a_dict[key] = to_type(a_dict[key], no_globals=self.globals, no_key_error=self.no_key_error)
+                    a_dict[key] = to_type(a_dict[key], no_globals=self.globals, no_key_error=self.no_key_error,
+                                          no_compound_keys=self.no_compound_keys)
                 else:
                     a_dict[key] = to_type(a_dict[key])
             elif not skip_lists and isinstance(a_dict[key], list):
@@ -88,7 +89,8 @@ class DictConfig(dict):
                     part if not isinstance(part, from_type)
                     else (
                         to_type(self._dict_cast(part, from_type, to_type, skip_lists),
-                                no_globals=self.globals, no_key_error=self.no_key_error)
+                                no_globals=self.globals, no_key_error=self.no_key_error,
+                                no_compound_keys=self.no_compound_keys)
                         if to_type is self.__class__
                         else to_type(self._dict_cast(part, from_type, to_type, skip_lists))
                     )
@@ -103,11 +105,13 @@ class DictConfig(dict):
     def _configs_to_dict(self, cfg, skip_lists=False):
         return self._dict_cast(cfg, self.__class__, dict, skip_lists)
 
-    def __init__(self, *args, no_globals: bool = False, no_key_error: bool = False, skip_lists: bool = False):
+    def __init__(self, *args, no_globals: bool = False, no_key_error: bool = False, skip_lists: bool = False,
+                 no_compound_keys: bool = False):
         """
         Constructor method
         """
         super(DictConfig, self).__init__(*args)
+        self.no_compound_keys = no_compound_keys
         self.no_key_error = no_key_error
         if no_globals is None:
             self.globals = None
@@ -173,6 +177,9 @@ class DictConfig(dict):
         :return any: the value located with the compound key
         :raises KeyError: if the key cannot be found (and self.no_key_error is True, None otherwise)
         """
+        if self.no_compound_keys:
+            return super(DictConfig, self).__getitem__(key)
+
         keys = self._split_key(key)
 
         if self.no_key_error and keys[0] not in self:
@@ -209,6 +216,12 @@ class DictConfig(dict):
         :param value: the value to be set on the key
         :return: None
         """
+        try:
+            if self.no_compound_keys:
+                return super(DictConfig, self).__setitem__(key, value)
+        except AttributeError:
+            pass
+
         keys = self._split_key(key)
 
         if len(keys) == 0:
