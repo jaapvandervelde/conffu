@@ -1,10 +1,11 @@
 import re
-from typing import DefaultDict, Dict, Union, TextIO, List, Any
+from typing import DefaultDict, Dict, Union, TextIO, List, Any, Generator, Tuple
 from sys import argv
+from os import getenv, name as os_name
 from collections import defaultdict
 from pathlib import Path
 
-__version__ = '2.0.6'
+__version__ = '2.0.7'
 GLOBALS_KEY = '_globals'
 
 
@@ -311,6 +312,7 @@ class DictConfig(dict):
         :param file: existing configuration filename (or open file pointer)
         :param file_type: either a file extension ('json', etc.) or None (to use the suffix of `filename`)
         :param parse_args: whether to parse command line arguments to override 'cfg', list of args to override
+               Note: still requires .update_from_arguments() to be called, only required here for -cfg override
         :param require_file: whether a configuration file is required (otherwise command line args only is accepted)
         :param load_kwargs: a dictionary containing keyword arguments to pass to the format-specific load method
         :param kwargs: additional keyword arguments passed to Config constructor
@@ -423,35 +425,36 @@ class DictConfig(dict):
                                  [] if include_from_arguments else self.from_arguments)
             etree.ElementTree(root).write(file, encoding='utf-8', xml_declaration=True, **kwargs)
 
+    def _set_value(self, k, v):
+        # existing key?
+        if k in self:
+            # for bool, check specific non-True values
+            if isinstance(self[k], bool):
+                self[k] = v.lower() not in ['0', 'false']
+            else:
+                # for other types, cast to type of existing key
+                t = type(self[k])
+                try:
+                    self[k] = t(v)
+                except ValueError:
+                    raise SyntaxError(f'Cannot cast {v} to {t} from arguments')
+        else:
+            # define new key
+            self.from_arguments.append(k)
+            self[k] = v
+
     def update_from_arguments(self, args: Union[Dict[str, list], list] = None, aliases: Dict[str, str] = None,
                               force_update=False):
         """
         Update the Config with values parsed from the command line arguments. Overwriting values will be cast to the
         same type as the overwritten value, all other values will remain str. Parameters with no value will be set to
-        True.
+        True. If the config was created with `.from_file()` and `parse_args` was not False, it will use the arguments
+        available at the time.
         :param args: a dictionary of arguments, like the one returned by argv_to_dict, or a list like sys.argv
         :param aliases: a dictionary with mappings passed to argv_to_dict, if args is a dictionary
-        :param force_update: whether to interpret args, even if self.arguments is not None
+        :param force_update: whether to interpret args, even if self.arguments is not None (e.g. from .from_file())
         :return: self
         """
-        def set_value(k, v):
-            # existing key?
-            if k in self:
-                # for bool, check specific non-True values
-                if isinstance(self[k], bool):
-                    self[k] = v.lower() not in ['0', 'false']
-                else:
-                    # for other types, cast to type of existing key
-                    t = type(self[k])
-                    try:
-                        self[k] = t(v)
-                    except ValueError:
-                        raise SyntaxError(f'Cannot cast {v} to {t}')
-            else:
-                # define new key
-                self.from_arguments.append(k)
-                self[k] = v
-
         if args is None:
             args = argv
         if isinstance(args, list):
@@ -467,14 +470,89 @@ class DictConfig(dict):
             else:
                 # unpack single value lists
                 if len(value) == 1:
-                    set_value(key, value[0])
+                    self._set_value(key, value[0])
                 else:
                     if not value:
                         # set to True for empty value
-                        set_value(key, True)
+                        self._set_value(key, True)
                     else:
                         # set as list for multi-value
-                        set_value(key, value)
+                        self._set_value(key, value)
+
+        # allow chaining
+        return self
+
+    def recursive_keys_tuples(self) -> Generator[Tuple[str, Tuple[str]], None, None]:
+        for key, value in self.items():
+            yield key, (key,)
+            if isinstance(value, DictConfig):
+                for compound_sub_key, sub_key in value.recursive_keys_tuples():
+                    yield f'{key}.{".".join(sub_key)}', tuple([key, *sub_key])
+
+    def recursive_keys(self) -> Dict[str, Tuple[str]]:
+        """
+        a generator that yields every key in the DictConfig as a dictionary of compound key: key as a tuple
+        :return: Generator[str, None, bool] containing all valid keys for self
+        """
+        return dict(self.recursive_keys_tuples())
+
+    @staticmethod
+    def _case_safe(key, keys):
+        # only on Windows, replace the key with a matching key ignoring case
+        if os_name == 'nt':
+            for k in keys:
+                if k.lower() == key.lower():
+                    return k
+        return key
+
+    def update_from_environment(self, env_vars: list = None, exclude_vars: List = None):
+        """
+        Update the Config with values from the system environment. If no specific `env_vars` are provided, any value
+        in the Config 'shadowed' by an environment variable will get updated.
+        :param env_vars: specific variables to update or add from the environment, or None to update any pre-defined
+        :param exclude_vars: variables that should not be updated (typically if env_vars is None)
+        :return: self
+        """
+        # TODO: parse environment variables case-insensitive on Windows, currently case sensitive
+        if exclude_vars is None:
+            exclude_vars = []
+        environment = {}
+        recursive_keys = self.recursive_keys()
+        if env_vars is None:
+            for compound_key, key in recursive_keys.items():
+                if getenv(compound_key) is not None and self._case_safe(compound_key, exclude_vars) not in exclude_vars:
+                    environment[key] = getenv(compound_key)
+        else:
+            for key in env_vars:
+                key = self._case_safe(key, recursive_keys)
+                if getenv(key) is not None and self._case_safe(key, exclude_vars) not in exclude_vars:
+                    if key in recursive_keys:
+                        environment[recursive_keys[key]] = getenv(key)
+                    else:
+                        environment[key] = getenv(key)
+                        self[key] = None
+        # perform update with constructed environment (not using compound keys, for simplicity)
+        for keys, value in environment.items():
+            d = self
+            for key in keys[:-1]:
+                d = d[key]
+            key = keys[-1]
+
+            # for bool, check specific non-True values
+            if isinstance(d[key], bool):
+                d[keys[-1]] = value.lower() not in ['0', 'false']
+            else:
+                # for other types, cast to type of existing key, or str if None
+                if d[key] is None:
+                    t = str
+                else:
+                    t = type(d[key])
+                try:
+                    d[keys[-1]] = t(value)
+                except ValueError:
+                    raise SyntaxError(f'Cannot cast {value} to {t} from environment')
+
+        # allow chaining
         return self
 
 
