@@ -29,7 +29,7 @@ def argv_to_dict(args: List[str], aliases: Dict[str, str] = None) -> DefaultDict
     result = defaultdict(list)
     for a in args:
         # arguments are prefixed with -, -- or / - no distinction for long names, so --h or -help would be valid
-        if a[0] in '-/':
+        if len(a) > 0 and a[0] in '-/':
             if len(a) == 1:
                 raise SyntaxError(f'Syntax error in argument: {a}')
             key = a[2:] if a[:2] == '--' else a[1:]
