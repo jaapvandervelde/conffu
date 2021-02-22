@@ -2,10 +2,11 @@ import re
 from typing import DefaultDict, Dict, Union, TextIO, List, Any, Generator, Tuple
 from sys import argv
 from os import getenv, name as os_name
+from io import StringIO, BytesIO
 from collections import defaultdict
 from pathlib import Path
 
-__version__ = '2.0.7'
+__version__ = '2.0.8'
 GLOBALS_KEY = '_globals'
 
 
@@ -304,16 +305,24 @@ class DictConfig(dict):
         return node
 
     @classmethod
-    def from_file(cls, file: Union[TextIO, str] = None, file_type: str = None,
-                  parse_args: bool = True, require_file: bool = True, load_kwargs: dict = None, **kwargs):
+    def _file_from_url(cls, url, url_kwargs):
+        from urllib import request
+        from urllib.parse import urlparse
+        return request.urlopen(url, **url_kwargs), Path(urlparse(url).path).name
+
+    @classmethod
+    def from_file(cls, file: Union[TextIO, BytesIO, str] = None, file_type: str = None,
+                  parse_args: bool = True, require_file: bool = True, url_kwargs: dict = None,
+                  load_kwargs: dict = None, **kwargs):
         """
         Factory method that loads a Config from file and initialises a new instance with the contents.
         Currently only supports .json and .pickle
         :param file: existing configuration filename (or open file pointer)
-        :param file_type: either a file extension ('json', etc.) or None (to use the suffix of `filename`)
+        :param file_type: either a file extension ('json', etc.) or None (will use the suffix of `filename`)
         :param parse_args: whether to parse command line arguments to override 'cfg', list of args to override
                Note: still requires .update_from_arguments() to be called, only required here for -cfg override
         :param require_file: whether a configuration file is required (otherwise command line args only is accepted)
+        :param url_kwargs: a dictionary containing keyword arguments to pass to a request urlopen method
         :param load_kwargs: a dictionary containing keyword arguments to pass to the format-specific load method
         :param kwargs: additional keyword arguments passed to Config constructor
         :return: initialised DictConfig instance
@@ -333,47 +342,71 @@ class DictConfig(dict):
                 cfg = cls()
                 filename = None
         else:
+            # determine filename and whether a file needs to be opened
+            open_file = False
             if isinstance(file, str) or isinstance(file, Path):
                 file = str(file)
-                if not Path(file).is_file():
-                    raise FileExistsError(f'Config file {file} not found.')
-                filename = file
+                try:
+                    if Path(file).is_file():
+                        filename = file
+                        open_file = True
+                    else:
+                        raise OSError
+                except OSError:
+                    try:
+                        # at this point, file is neither a handle nor a valid file name, try it as a URL
+                        file, filename = cls._file_from_url(file, url_kwargs if url_kwargs is not None else {})
+                    except IOError:
+                        # at this point, file is neither a handle, a valid file name or a valid URL
+                        raise FileExistsError(f'Config file {file} not found.')
             else:
                 try:
                     filename = file.name
                 except AttributeError:
                     filename = None
+
+            # determine file type from name, if not specified
             if file_type is None:
                 if filename is None:
                     raise SyntaxError('File without name requires file_type to be specified')
                 file_type = Path(filename).suffix.lower()[1:]
-            if load_kwargs is None:
-                load_kwargs = {}
-            if file_type == 'json':
-                import json
-                if isinstance(file, str):
-                    with open(filename, 'r') as f:
-                        cfg = cls(json.load(f, **load_kwargs), **kwargs)
+
+            try:
+                # open file if needed at this point
+                if open_file:
+                    if file_type in ['json', 'xml']:
+                        file = open(filename, 'r')
+                    elif file_type == 'pickle':
+                        file = open(filename, 'rb')
                 else:
+                    # if file is either a file object opened with 'b', or not a descendent of StringIO, wrap it
+                    if file_type in ['json', 'xml'] and (
+                            (hasattr(file, 'mode') and file.mode == 'b') or not isinstance(file, StringIO)):
+                        file = StringIO(file.read().decode())
+
+                # based on file_type, obtain cfg from the file handle
+                if load_kwargs is None:
+                    load_kwargs = {}
+                if file_type == 'json':
+                    import json
                     cfg = cls(json.load(file, **load_kwargs), **kwargs)
-            elif file_type == 'pickle':
-                import pickle
-                if isinstance(file, str):
-                    with open(filename, 'rb') as f:
-                        cfg = pickle.load(f, **load_kwargs)
-                else:
+                elif file_type == 'pickle':
+                    import pickle
                     cfg = pickle.load(file, **load_kwargs)
-            elif file_type == 'xml':
-                from lxml import etree
-                root = etree.parse(file, **load_kwargs).getroot()
-                cfg = cls._xml2cfg(root, **kwargs)
+                elif file_type == 'xml':
+                    from lxml import etree
+                    root = etree.parse(file, **load_kwargs).getroot()
+                    cfg = cls._xml2cfg(root, **kwargs)
+            finally:
+                if open_file:
+                    file.close()
 
         cfg.filename = filename
         cfg.arguments = args
 
         return cfg
 
-    def save(self, file: Union[TextIO, str] = None, file_type: str = None, include_globals: bool = True,
+    def save(self, file: Union[TextIO, BytesIO, str] = None, file_type: str = None, include_globals: bool = True,
              include_from_arguments: bool = True, **kwargs):
         """
         Save the config to a file of specified type

@@ -5,6 +5,14 @@ Changes to this package will be documented in this file.
 ## [2.0.7] - 2021-02-01
 
 ### Added
+  - .from_file() now also accepts a URL as the source to load a configuration from
+
+### Fixed
+  - case-sensitivity of enviroment variables and lack of tests on Linux
+
+## [2.0.7] - 2021-02-01
+
+### Added
   - updating values in the configuration from the system environment, similar to arguments
   - avoid case-sensitivity when updating values from the environment
   - support compound name settings from the environment, regardless of how the Config is set up

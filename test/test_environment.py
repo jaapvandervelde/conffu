@@ -8,7 +8,9 @@ class TestConfig(unittest.TestCase):
         # create test environment environment
         self.unset_vars = []
         self.save_environment = {}
-        self.environment = {'a': '2', 'b': '1', 'c d': '4', 'e.f': '5', 't': 'text with spaces\nand newline', 'Z': '0'}
+        self.environment = {
+            'a': '2', 'b': '1', 'c d': '4', 'e.f': '5', 't': 'text with spaces\nand newline', 'Z': '0'
+        }
 
         for key, value in self.environment.items():
             if getenv(key) is None:
@@ -68,6 +70,13 @@ class TestConfig(unittest.TestCase):
             self.assertEqual(5, cfg['E.F'], msg='values with compound key existing in env get updated')
             cfg = Config({'z': 1}).update_from_environment()
             self.assertEqual(0, cfg['z'], msg='int values existing in env get updated, ignoring case (upper)')
+        else:
+            cfg = Config({'A': 1}).update_from_environment()
+            self.assertEqual(1, cfg['A'], msg='int values existing in with mismatching case do no get updated, (lower)')
+            cfg = Config({'e': {'f': 1}}).update_from_environment()
+            self.assertEqual(5, cfg['e.f'], msg='values with compound key existing in env get updated')
+            cfg = Config({'z': 1}).update_from_environment()
+            self.assertEqual(1, cfg['z'], msg='int values existing in with mismatching case do no get updated, (upper)')
 
     def test_environment_add(self):
         cfg = Config({'x': 1}).update_from_environment(['a'])

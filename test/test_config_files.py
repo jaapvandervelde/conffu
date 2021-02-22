@@ -3,6 +3,7 @@ import inspect
 import tempfile
 from pathlib import Path
 from conffu import Config
+from subprocess import Popen, DEVNULL
 
 
 class TestConfig(unittest.TestCase):
@@ -62,3 +63,21 @@ class TestConfig(unittest.TestCase):
         cfg = Config.from_file(Path(self.tmpdir.name) / 'config_copy.pickle')
         self._check_config(cfg)
         self.assertEqual(cfg, self._cfg)
+
+    def test_from_url_text(self):
+        self._cfg.save(Path(self.tmpdir.name) / 'config_copy.json')
+        p = Popen(['python', '-m', 'http.server'], cwd=self.tmpdir.name, stderr=DEVNULL, stdout=DEVNULL)
+        cfg = Config.from_file('http://localhost:8000/config_copy.json?foo=bar')
+        self._check_config(cfg)
+        self.assertEqual(cfg, self._cfg)
+        p.terminate()
+        p.wait()
+
+    def test_from_url_bin(self):
+        self._cfg.save(Path(self.tmpdir.name) / 'config_copy.pickle')
+        p = Popen(['python', '-m', 'http.server'], cwd=self.tmpdir.name, stderr=DEVNULL, stdout=DEVNULL)
+        cfg = Config.from_file('http://localhost:8000/config_copy.pickle?foo=bar')
+        self._check_config(cfg)
+        self.assertEqual(cfg, self._cfg)
+        p.terminate()
+        p.wait()
