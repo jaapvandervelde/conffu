@@ -1,11 +1,9 @@
 # Changelog
 
-Changes to this package will be documented in this file.
-
-## [2.0.7] - 2021-02-01
+## [2.0.8] - 2021-02-22
 
 ### Added
-  - .from_file() now also accepts a URL as the source to load a configuration from
+  - .from_file() now also accepts a URL as the source location to load a configuration from
 
 ### Fixed
   - case-sensitivity of enviroment variables and lack of tests on Linux
