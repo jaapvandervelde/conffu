@@ -114,6 +114,17 @@ class TestConfig(unittest.TestCase):
                          cfg.recursive_keys(),
                          'compound keys are generated in order, depth-first')
 
+    def test_attr(self):
+        cfg = Config()
+        cfg.test = 1
+        cfg['test'] = 2
+        self.assertEqual(1, cfg.test, 'attributes are preferred over keys')
+        self.assertEqual(2, cfg['test'], 'keys with names like attributes still work')
+        cfg['test_2'] = 3
+        self.assertEqual(3, cfg.test_2, 'keys can be accessed as attributes if they do are not shadowed')
+        del cfg.test
+        self.assertEqual(2, cfg.test, 'if no longer shadowed by an attribute, keys can be access as attribute')
+
 
 if __name__ == '__main__':
     unittest.main()

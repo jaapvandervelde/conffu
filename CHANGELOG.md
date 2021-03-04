@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.1.1] - 2021-03-05
+
+### Changed
+  - setting an attribute on Config that matches a key in the configuration will set that configuration item instead, without shadowing attributes on the configuration object
+
 ## [2.1.0] - 2021-03-03
 
 ### Changed

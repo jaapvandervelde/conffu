@@ -1,0 +1,22 @@
+{
+    "_globals": {
+        "part": "replacement",
+        "amount": 3
+    },
+    "a_text": "a description of the {part}",
+    "texts": ["some content", "another one", "one with a {part} in it"],
+    "objects": [{
+        "id": 1,
+        "name": "the thing",
+        "desc": "we have {amount} of {part}"
+    }, {
+        "id": 2,
+        "name": "another thing",
+        "desc": "nothing much"
+    }],
+    "settings": {
+        "height": 10,
+        "width": 12,
+        "log": "\\\\server\\folder\\{part}\\text.log"
+    }
+}

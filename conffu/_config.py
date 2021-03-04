@@ -8,7 +8,7 @@ from io import StringIO, BytesIO
 from collections import defaultdict
 from pathlib import Path
 
-__version__ = '2.1.0'
+__version__ = '2.1.1'
 GLOBALS_KEY = '_globals'
 
 
@@ -737,7 +737,7 @@ class DictConfig(dict):
 
 class Config(DictConfig):
     """
-    A DictConfig that allows access to its items as attributes.
+    A DictConfig that allows read access to its items as attributes.
 
     :Example:
 
@@ -750,3 +750,10 @@ class Config(DictConfig):
             return self[attr]
         else:
             raise AttributeError(f'No attribute or key {attr} for {self.__class__}')
+
+    def __setattr__(self, attr, value):
+        # don't allow configuration items to shadow object attributes, not using hasattr, as it will call __getattr__
+        if attr in dir(self) or attr not in self:
+            super(DictConfig, self).__setattr__(attr, value)
+        else:
+            self[attr] = value

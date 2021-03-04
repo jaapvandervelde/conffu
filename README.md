@@ -56,6 +56,29 @@ python example.py -number 7
 
 There's many more options, check the documentation for more examples.
 
+### Caveat
+
+Note that `Config` allows you to do this:
+```python
+from conffu import Config
+
+cfg = Config()
+cfg['test'] = 1
+print(cfg.test)  # prints 1
+```
+That is, you're allowed to access configuration keys as if they were attributes on the configuration. However, if you try to access a key that happens to also be an attribute on the object, you get the attribute. This has the advantage that the feature doesn't break how objects work in Python, but the disadvantage that you'll need to access keys that have the same name as object attributes using the dictionary syntax. For example:
+```python
+from conffu import Config
+
+cfg = Config()
+cfg.test = 1
+cfg['test'] = 2
+cfg.test = 3
+cfg.['test'] = 4
+print(cfg.test, cfg['test'])  # prints 3 4 instead of 4 4
+```
+If you don't like this behaviour, use the `DictConfig` class instead of `Config` - they are identical, except that the `DictConfig` does not have this behaviour and you always access keys like `cfg['test']`, or `cfg['key.subkey']`.
+
 ## License
 
 This project is licensed under the MIT license. See [LICENSE.txt](https://gitlab.com/Jaap.vanderVelde/conffu/-/blob/master/LICENSE.txt).
