@@ -1,6 +1,7 @@
 import unittest
 from conffu import Config
 from os import environ, getenv, unsetenv, name as os_name
+from nt import environ as nt_environ
 
 
 class TestConfig(unittest.TestCase):
@@ -9,7 +10,8 @@ class TestConfig(unittest.TestCase):
         self.unset_vars = []
         self.save_environment = {}
         self.environment = {
-            'a': '2', 'b': '1', 'c d': '4', 'e.f': '5', 't': 'text with spaces\nand newline', 'Z': '0'
+            'a': '2', 'b': '1', 'c d': '4', 'e.f': '5', 't': 'text with spaces\nand newline', 'Z': '0',
+            'pf_x': '10', 'pf_y': 'why', '{g}': 'foo', 'pf_{h}': 'baz'
         }
 
         for key, value in self.environment.items():
@@ -17,6 +19,8 @@ class TestConfig(unittest.TestCase):
                 self.unset_vars.append(key)
             else:
                 self.save_environment[key] = getenv(key)
+            if os_name == 'nt':
+                nt_environ[key] = value
             environ[key] = value
 
     def tearDown(self) -> None:
@@ -35,6 +39,26 @@ class TestConfig(unittest.TestCase):
         cfg = Config({'c d': ''}).update_from_environment()
         self.assertEqual(self.environment['c d'], cfg['c d'], msg='string values with space existing in env updated')
         self.assertIsInstance(cfg['c d'], str)
+
+    def test_environment_globals(self):
+        cfg = Config({'_globals': {'g': 'baz'}, 'template': 'bar{g}bar'}).update_from_environment()
+        self.assertEqual('barfoobar', cfg['template'], msg='globals get picked up from environment in braces')
+
+    def test_environment_prefix(self):
+        cfg = Config({'a': '1', 'x': 'x'}).update_from_environment(env_var_prefix='pf_')
+        self.assertEqual(self.environment['pf_x'], cfg['x'], msg='values existing in env with given prefix get updated')
+        cfg = Config({'a': '1', 'x': 'x'}).update_from_environment(env_vars=['y'], env_var_prefix='pf_')
+        self.assertEqual('x', cfg['x'], msg='unspecified values existing in env with given prefix do not get updated')
+        self.assertEqual('why', cfg['y'], msg='specified values existing in env with given prefix get updated')
+        self.assertEqual('1', cfg['a'], msg='values not existing in env with given prefix do not get updated')
+
+    def test_environment_prefix_globals(self):
+        cfg = Config({'template': 'bar{h}bar'}).update_from_environment(env_var_prefix='pf_')
+        self.assertEqual('barbazbar', cfg['template'], msg='all prefixed braced globals get picked up from environment')
+
+    def test_environment_prefix_arguments(self):
+        cfg = Config({'template': 'bar{h}bar'}).parse_arguments(['script.py', '-evp', 'pf_']).update_from_environment()
+        self.assertEqual('barbazbar', cfg['template'], msg='all prefixed braced globals get picked up from environment')
 
     def test_environment_typed(self):
         cfg = Config({'a': 1}).update_from_environment()
@@ -81,7 +105,7 @@ class TestConfig(unittest.TestCase):
     def test_environment_add(self):
         cfg = Config({'x': 1}).update_from_environment(['a'])
         self.assertEqual(1, cfg['x'], msg='values not in environment are untouched')
-        self.assertEqual('2', cfg['a'], msg='values specified for adding from environment are')
+        self.assertEqual('2', cfg['a'], msg='values specified for adding from environment are added')
         self.assertEqual({'a': '2', 'x': 1}, dict(cfg), msg='only specified values are touched')
 
     def test_environment_exclude(self):

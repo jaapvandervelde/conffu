@@ -47,27 +47,27 @@ class TestConfig(unittest.TestCase):
 
     def test_json_roundtrip(self):
         self._cfg.save(Path(self.tmpdir.name) / 'config_copy.json')
-        cfg = Config.from_file(Path(self.tmpdir.name) / 'config_copy.json')
+        cfg = Config.load(Path(self.tmpdir.name) / 'config_copy.json')
         self._check_config(cfg)
         self.assertEqual(cfg, self._cfg)
 
     def test_xml_roundtrip(self):
         self._cfg.save(Path(self.tmpdir.name) / 'config_copy.xml')
-        cfg = Config.from_file(Path(self.tmpdir.name) / 'config_copy.xml')
+        cfg = Config.load(Path(self.tmpdir.name) / 'config_copy.xml')
         self._check_config(cfg)
         self.assertEqual(cfg, self._cfg)
 
     def test_pickle_roundtrip(self):
         self._check_config(self._cfg)
         self._cfg.save(Path(self.tmpdir.name) / 'config_copy.pickle')
-        cfg = Config.from_file(Path(self.tmpdir.name) / 'config_copy.pickle')
+        cfg = Config.load(Path(self.tmpdir.name) / 'config_copy.pickle')
         self._check_config(cfg)
         self.assertEqual(cfg, self._cfg)
 
     def test_from_url_text(self):
         self._cfg.save(Path(self.tmpdir.name) / 'config_copy.json')
         p = Popen(['python', '-m', 'http.server'], cwd=self.tmpdir.name, stderr=DEVNULL, stdout=DEVNULL)
-        cfg = Config.from_file('http://localhost:8000/config_copy.json?foo=bar')
+        cfg = Config.load('http://localhost:8000/config_copy.json?foo=bar')
         self._check_config(cfg)
         self.assertEqual(cfg, self._cfg)
         p.terminate()
@@ -76,7 +76,7 @@ class TestConfig(unittest.TestCase):
     def test_from_url_bin(self):
         self._cfg.save(Path(self.tmpdir.name) / 'config_copy.pickle')
         p = Popen(['python', '-m', 'http.server'], cwd=self.tmpdir.name, stderr=DEVNULL, stdout=DEVNULL)
-        cfg = Config.from_file('http://localhost:8000/config_copy.pickle?foo=bar')
+        cfg = Config.load('http://localhost:8000/config_copy.pickle?foo=bar')
         self._check_config(cfg)
         self.assertEqual(cfg, self._cfg)
         p.terminate()

@@ -1,5 +1,6 @@
 .idea/
 dist/
 sandbox/
+build/
 *.egg-info/
 *.py[ocd]

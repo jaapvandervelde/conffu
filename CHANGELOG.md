@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.1.0] - 2021-03-03
+
+### Changed
+  - centralised CLI parameter parsing, exposed as `.parse_arguments()`
+  - [breaking] renamed some core methods and parameters to reflect function (`from_file` is now `load` with `source`, etc.)
+
+### Added
+  - environment variables can now be added based on a prefix, without being predefined in the config
+  - globals can now be defined as environment variables and arguments as well
+  - added `.full_update()` method to combine update from environment and arguments (in that order)
+  - `from_file` alias for `load` for backward compatibility, now deprecated and will be removed in 3.x
+
+### Fixes
+  - issue with environment variable case
+  - incorrect nested global replacement in edge cases
+  - `DictConfig.copy()` now returns a `DictConfig` instead of a `dict`
+
 ## [2.0.8] - 2021-02-22
 
 ### Added

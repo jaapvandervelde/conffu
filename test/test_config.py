@@ -50,6 +50,10 @@ class TestConfig(unittest.TestCase):
         self.assertEqual('1={x}', cfg['escaped'], msg='escaped braces should be unescaped')
         self.assertFalse('_globals' in cfg, msg='globals should be hidden')
 
+    def test_globals_partial(self):
+        cfg = DictConfig({'_globals': {'x': 1}, 'missing_y': '1={x}{y}'})
+        self.assertEqual('1=1{y}', cfg['missing_y'], msg='missing globals should be left un-replaced')
+
     def test_globals_nested(self):
         cfg = DictConfig({'_globals': {'x': 1}, 'test': {'value': '1={x}', 'escaped': '1={{x}}'}})
         self.assertEqual('1=1', cfg['test']['value'], msg='nested globals should be replaced')

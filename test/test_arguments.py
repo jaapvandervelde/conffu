@@ -33,6 +33,11 @@ class TestConfig(unittest.TestCase):
         cfg = Config({'a': {'b': 'foo'}})
         self.assertEqual(cfg['a.b'], 'foo', msg='vales in nested configuration should be accessible by compound key')
 
+    def test_global_argument(self):
+        args = argv_to_dict(['script.py', '-{root}', 'foo', '-p', '{root}/bar'])
+        cfg = Config().update_from_arguments(args)
+        self.assertEqual(cfg['p'], 'foo/bar', msg='argument without parameters should be True in Config')
+
     def test_config_argument(self):
         args = argv_to_dict(['script.py', '-a'])
         cfg = Config().update_from_arguments(args)
@@ -55,14 +60,14 @@ class TestConfig(unittest.TestCase):
 
     def test_config_from_file_argument(self):
         args = argv_to_dict(['script.py', '-a'])
-        cfg = Config.from_file(StringIO('{}'), file_type='json').update_from_arguments(args)
+        cfg = Config.load(StringIO('{}'), file_type='json').update_from_arguments(args)
         self.assertEqual(cfg['a'], True, msg='argument without parameters should be True in Config')
 
     def test_config_from_file_argument_override(self):
         args = argv_to_dict(['script.py', '-a'])
-        cfg = Config.from_file(StringIO('{"a": 1}'), file_type='json').update_from_arguments(args)
+        cfg = Config.load(StringIO('{"a": 1}'), file_type='json').update_from_arguments(args)
         self.assertIsInstance(cfg['a'], int, msg='argument gets cast to type (int) of existing key')
         self.assertEqual(cfg['a'], True, msg='cast argument without parameters should equal True (1) in Config')
-        cfg = Config.from_file(StringIO('{"a": "1"}'), file_type='json').update_from_arguments(args)
+        cfg = Config.load(StringIO('{"a": "1"}'), file_type='json').update_from_arguments(args)
         self.assertIsInstance(cfg['a'], str, msg='argument gets cast to type (str) of existing key')
         self.assertEqual(cfg['a'], "True", msg='cast argument without parameters should equal "True" in Config')

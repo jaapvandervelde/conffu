@@ -1,12 +1,14 @@
 import re
 from typing import DefaultDict, Dict, Union, TextIO, List, Any, Generator, Tuple
 from sys import argv
-from os import getenv, name as os_name
+from os import getenv, name as os_name, environ as os_environ
+if os_name == 'nt':
+    from nt import environ as nt_environ
 from io import StringIO, BytesIO
 from collections import defaultdict
 from pathlib import Path
 
-__version__ = '2.0.8'
+__version__ = '2.1.0'
 GLOBALS_KEY = '_globals'
 
 
@@ -64,9 +66,42 @@ class DictConfig(dict):
     >>> type(dc['sub'])
     <class 'configuration._configuration.DictConfig'>
     """
+    ARG_MAP = {'config': 'cfg', 'configuration': 'cfg', 'environment_variable_prefix': 'evp', 'env_var_prefix': 'evp'}
+
     class _Globals(dict):
         def __missing__(self, key):
             return '{' + key + '}'
+
+    def __init__(self, *args, no_globals: bool = False, no_key_error: bool = False, skip_lists: bool = False,
+                 no_compound_keys: bool = False):
+        """
+        Constructor method
+        """
+        super(DictConfig, self).__init__(*args)
+        self.no_compound_keys = no_compound_keys
+        self.no_key_error = no_key_error
+        if no_globals is None:
+            self.globals = None
+        elif no_globals:
+            if isinstance(no_globals, dict):
+                self.globals = no_globals
+            else:
+                self.globals = None
+        else:
+            # globals as part of a config only work if they are in the config and are actually a dict (or a Config)
+            if GLOBALS_KEY not in self or not isinstance(super(DictConfig, self).__getitem__(GLOBALS_KEY), dict):
+                self.globals = None
+            else:
+                self.globals = super(DictConfig, self).__getitem__(GLOBALS_KEY)
+                del self[GLOBALS_KEY]
+        self.filename = None
+        self.arguments = None
+        self.env_var_prefix = None
+        self.cfg_filename = None
+        self.parameters = None
+        self.from_arguments = []
+        # replace dicts in Config with equivalent Config
+        self._dicts_to_config(self, skip_lists=skip_lists)
 
     def _dict_cast(self, a_dict: dict, from_type: type, to_type: type, skip_lists: bool = False) -> dict:
         """
@@ -107,35 +142,6 @@ class DictConfig(dict):
     def _configs_to_dict(self, cfg, skip_lists=False):
         return self._dict_cast(cfg, self.__class__, dict, skip_lists)
 
-    def __init__(self, *args, no_globals: bool = False, no_key_error: bool = False, skip_lists: bool = False,
-                 no_compound_keys: bool = False):
-        """
-        Constructor method
-        """
-        super(DictConfig, self).__init__(*args)
-        self.no_compound_keys = no_compound_keys
-        self.no_key_error = no_key_error
-        if no_globals is None:
-            self.globals = None
-        elif no_globals:
-            if isinstance(no_globals, dict):
-                self.globals = no_globals
-            else:
-                self.globals = None
-        else:
-            # globals as part of a config only work if they are in the config and are actually a dict (or a Config)
-            if GLOBALS_KEY not in self or not isinstance(super(DictConfig, self).__getitem__(GLOBALS_KEY), dict):
-                self.globals = None
-            else:
-                self.globals = super(DictConfig, self).__getitem__(GLOBALS_KEY)
-                del self[GLOBALS_KEY]
-        self.filename = None
-        self.arguments = None
-        self.parameters = None
-        self.from_arguments = []
-        # replace dicts in Config with equivalent Config
-        self._dicts_to_config(self, skip_lists=skip_lists)
-
     @staticmethod
     def _split_key(key):
         if isinstance(key, str):
@@ -172,6 +178,31 @@ class DictConfig(dict):
         """
         return dict.__getitem__(self, key)
 
+    def _subst_globals(self, value: Any) -> Any:
+        if self.globals is None:
+            return value
+        else:
+            if isinstance(value, str):
+                try:
+                    return value.format_map(self._Globals(self.globals))
+                except AttributeError:
+                    return value
+            elif isinstance(value, list) or isinstance(value, tuple):
+                # noinspection PyArgumentList
+                return value.__class__(self._subst_globals(v) for v in value)
+            elif isinstance(value, dict):
+                # noinspection PyArgumentList
+                return value.__class__({k: self._subst_globals(v) for k, v in value.items()})
+            else:
+                return value
+
+    def subst_globals(self) -> 'DictConfig':
+        """
+        Substitutes all globals in values of the config and returns the result
+        :return: DictConfig with substituted string values
+        """
+        return self._subst_globals(self)
+
     def __getitem__(self, key: str) -> Any:
         """
         Retrieve the item with (compound) key from self
@@ -198,18 +229,7 @@ class DictConfig(dict):
                     return None
                 else:
                     raise KeyError(f'Multi-part key, but `{keys[0]}` is not a dictionary or Config.')
-            value = super(DictConfig, self).__getitem__(keys[0])
-            if not isinstance(value, str) or self.globals is None:
-                # for lists, replace globals for all elements
-                if isinstance(value, list) and self.globals is not None:
-                    return [x.format_map(self._Globals(self.globals)) for x in value]
-                else:
-                    return value
-            else:
-                try:
-                    return value.format_map(self._Globals(self.globals))
-                except AttributeError:
-                    pass
+            return self._subst_globals(super(DictConfig, self).__getitem__(keys[0]))
 
     def __setitem__(self, key: str, value: Any):
         """
@@ -251,6 +271,9 @@ class DictConfig(dict):
         if with_globals:
             result[GLOBALS_KEY] = dict(self.globals)
         return result
+
+    def copy(self):
+        return self.__class__(self.dict_copy())
 
     @classmethod
     def _xml2cfg(cls, root, **kwargs):
@@ -311,16 +334,14 @@ class DictConfig(dict):
         return request.urlopen(url, **url_kwargs), Path(urlparse(url).path).name
 
     @classmethod
-    def from_file(cls, file: Union[TextIO, BytesIO, str] = None, file_type: str = None,
-                  parse_args: bool = True, require_file: bool = True, url_kwargs: dict = None,
-                  load_kwargs: dict = None, **kwargs):
+    def load(cls, source: Union[TextIO, BytesIO, str] = None, file_type: str = None, no_arguments: bool = False,
+             require_file: bool = True, url_kwargs: dict = None, load_kwargs: dict = None, **kwargs) -> 'DictConfig':
         """
         Factory method that loads a Config from file and initialises a new instance with the contents.
         Currently only supports .json and .pickle
-        :param file: existing configuration filename (or open file pointer)
+        :param source: existing configuration filename, url, or open file pointer
         :param file_type: either a file extension ('json', etc.) or None (will use the suffix of `filename`)
-        :param parse_args: whether to parse command line arguments to override 'cfg', list of args to override
-               Note: still requires .update_from_arguments() to be called, only required here for -cfg override
+        :param no_arguments: whether to obtain a source from the command line arguments, if source is None
         :param require_file: whether a configuration file is required (otherwise command line args only is accepted)
         :param url_kwargs: a dictionary containing keyword arguments to pass to a request urlopen method
         :param load_kwargs: a dictionary containing keyword arguments to pass to the format-specific load method
@@ -328,14 +349,12 @@ class DictConfig(dict):
         :return: initialised DictConfig instance
         """
         cfg = None
-        if parse_args:
-            mapping = {'config': 'cfg', 'configuration': 'cfg'}
-            args = argv_to_dict(parse_args if isinstance(parse_args, list) else argv, mapping)
-            if 'cfg' in args:
-                file = args['cfg'][0]
-        else:
-            args = None
-        if file is None:
+        if source is None:
+            if not no_arguments:
+                cli_args = cls._parse_arguments()
+                if 'cfg' in cli_args:
+                    source = cli_args['cfg'][0]
+        if source is None:
             if require_file:
                 raise SyntaxError('from_file requires a file parameter or configuration should be passed on the cli')
             else:
@@ -344,24 +363,24 @@ class DictConfig(dict):
         else:
             # determine filename and whether a file needs to be opened
             open_file = False
-            if isinstance(file, str) or isinstance(file, Path):
-                file = str(file)
+            if isinstance(source, str) or isinstance(source, Path):
+                source = str(source)
                 try:
-                    if Path(file).is_file():
-                        filename = file
+                    if Path(source).is_file():
+                        filename = source
                         open_file = True
                     else:
                         raise OSError
                 except OSError:
                     try:
                         # at this point, file is neither a handle nor a valid file name, try it as a URL
-                        file, filename = cls._file_from_url(file, url_kwargs if url_kwargs is not None else {})
+                        source, filename = cls._file_from_url(source, url_kwargs if url_kwargs is not None else {})
                     except IOError:
                         # at this point, file is neither a handle, a valid file name or a valid URL
-                        raise FileExistsError(f'Config file {file} not found.')
+                        raise FileExistsError(f'Config file {source} not found.')
             else:
                 try:
-                    filename = file.name
+                    filename = source.name
                 except AttributeError:
                     filename = None
 
@@ -375,36 +394,44 @@ class DictConfig(dict):
                 # open file if needed at this point
                 if open_file:
                     if file_type in ['json', 'xml']:
-                        file = open(filename, 'r')
+                        source = open(filename, 'r')
                     elif file_type == 'pickle':
-                        file = open(filename, 'rb')
+                        source = open(filename, 'rb')
                 else:
                     # if file is either a file object opened with 'b', or not a descendent of StringIO, wrap it
                     if file_type in ['json', 'xml'] and (
-                            (hasattr(file, 'mode') and file.mode == 'b') or not isinstance(file, StringIO)):
-                        file = StringIO(file.read().decode())
+                            (hasattr(source, 'mode') and source.mode == 'b') or not isinstance(source, StringIO)):
+                        source = StringIO(source.read().decode())
 
                 # based on file_type, obtain cfg from the file handle
                 if load_kwargs is None:
                     load_kwargs = {}
                 if file_type == 'json':
                     import json
-                    cfg = cls(json.load(file, **load_kwargs), **kwargs)
+                    cfg = cls(json.load(source, **load_kwargs), **kwargs)
                 elif file_type == 'pickle':
                     import pickle
-                    cfg = pickle.load(file, **load_kwargs)
+                    cfg = pickle.load(source, **load_kwargs)
                 elif file_type == 'xml':
                     from lxml import etree
-                    root = etree.parse(file, **load_kwargs).getroot()
+                    root = etree.parse(source, **load_kwargs).getroot()
                     cfg = cls._xml2cfg(root, **kwargs)
             finally:
                 if open_file:
-                    file.close()
+                    source.close()
 
         cfg.filename = filename
-        cfg.arguments = args
 
         return cfg
+
+    @classmethod
+    def from_file(cls, file: Union[TextIO, BytesIO, str] = None, file_type: str = None, no_arguments: bool = False,
+                  require_file: bool = True, url_kwargs: dict = None, load_kwargs: dict = None,
+                  **kwargs) -> 'DictConfig':
+        """
+        Deprecated, use DictConfig.load()
+        """
+        return cls.load(file, file_type, no_arguments, require_file, url_kwargs, load_kwargs, **kwargs)
 
     def save(self, file: Union[TextIO, BytesIO, str] = None, file_type: str = None, include_globals: bool = True,
              include_from_arguments: bool = True, **kwargs):
@@ -458,7 +485,7 @@ class DictConfig(dict):
                                  [] if include_from_arguments else self.from_arguments)
             etree.ElementTree(root).write(file, encoding='utf-8', xml_declaration=True, **kwargs)
 
-    def _set_value(self, k, v):
+    def _set_value_from_args(self, k, v):
         # existing key?
         if k in self:
             # for bool, check specific non-True values
@@ -476,50 +503,25 @@ class DictConfig(dict):
             self.from_arguments.append(k)
             self[k] = v
 
-    def update_from_arguments(self, args: Union[Dict[str, list], list] = None, aliases: Dict[str, str] = None,
-                              force_update=False):
-        """
-        Update the Config with values parsed from the command line arguments. Overwriting values will be cast to the
-        same type as the overwritten value, all other values will remain str. Parameters with no value will be set to
-        True. If the config was created with `.from_file()` and `parse_args` was not False, it will use the arguments
-        available at the time.
-        :param args: a dictionary of arguments, like the one returned by argv_to_dict, or a list like sys.argv
-        :param aliases: a dictionary with mappings passed to argv_to_dict, if args is a dictionary
-        :param force_update: whether to interpret args, even if self.arguments is not None (e.g. from .from_file())
-        :return: self
-        """
-        if args is None:
-            args = argv
-        if isinstance(args, list):
-            if self.arguments is None or force_update:
-                self.arguments = argv_to_dict(args, aliases)
+    def _set_globals_from_args(self, k, v):
+        if self.globals is None:
+            self.globals = {}
+        # for bool, check specific non-True values
+        if k in self.globals and isinstance(self.globals[k], bool):
+            self.globals[k] = v.lower() not in ['0', 'false']
         else:
-            self.arguments = args
+            # for other types, cast to type of existing key
+            t = type(self.globals[k]) if k in self.globals else type(v)
+            try:
+                self.globals[k] = t(v)
+            except ValueError:
+                raise SyntaxError(f'Cannot cast {v} to {t} from arguments')
 
-        for key, value in self.arguments.items():
-            if not key:
-                # first value of '' key is the name of the program
-                self.parameters = value[1:]
-            else:
-                # unpack single value lists
-                if len(value) == 1:
-                    self._set_value(key, value[0])
-                else:
-                    if not value:
-                        # set to True for empty value
-                        self._set_value(key, True)
-                    else:
-                        # set as list for multi-value
-                        self._set_value(key, value)
-
-        # allow chaining
-        return self
-
-    def recursive_keys_tuples(self) -> Generator[Tuple[str, Tuple[str]], None, None]:
+    def _recursive_keys_tuples(self) -> Generator[Tuple[str, Tuple[str]], None, None]:
         for key, value in self.items():
             yield key, (key,)
             if isinstance(value, DictConfig):
-                for compound_sub_key, sub_key in value.recursive_keys_tuples():
+                for compound_sub_key, sub_key in value._recursive_keys_tuples():
                     yield f'{key}.{".".join(sub_key)}', tuple([key, *sub_key])
 
     def recursive_keys(self) -> Dict[str, Tuple[str]]:
@@ -527,7 +529,7 @@ class DictConfig(dict):
         a generator that yields every key in the DictConfig as a dictionary of compound key: key as a tuple
         :return: Generator[str, None, bool] containing all valid keys for self
         """
-        return dict(self.recursive_keys_tuples())
+        return dict(self._recursive_keys_tuples())
 
     @staticmethod
     def _case_safe(key, keys):
@@ -538,37 +540,124 @@ class DictConfig(dict):
                     return k
         return key
 
-    def update_from_environment(self, env_vars: list = None, exclude_vars: List = None):
+    @classmethod
+    def _parse_arguments(cls, cli_args: Union[Dict[str, list], list] = None, aliases: Dict[str, str] = None):
+        if isinstance(cli_args, dict):
+            if isinstance(cli_args, defaultdict):
+                # noinspection PyArgumentList
+                return cli_args.__class__(
+                    cli_args.default_factory,
+                    {aliases[k] if aliases is not None and k in aliases else k: v for k, v in cli_args.items()})
+            else:
+                # noinspection PyArgumentList
+                return cli_args.__class__(
+                    {aliases[k] if aliases is not None and k in aliases else k: v for k, v in cli_args.items()})
+        else:
+            return argv_to_dict(cli_args if isinstance(cli_args, list) else argv,
+                                cls.ARG_MAP if aliases is None else aliases | cls.ARG_MAP)
+
+    def parse_arguments(self, cli_args: Union[Dict[str, list], list] = None, aliases: Dict[str, str] = None):
         """
-        Update the Config with values from the system environment. If no specific `env_vars` are provided, any value
-        in the Config 'shadowed' by an environment variable will get updated.
-        :param env_vars: specific variables to update or add from the environment, or None to update any pre-defined
-        :param exclude_vars: variables that should not be updated (typically if env_vars is None)
+        Parse command line arguments (or passed arguments) and determine environment variable prefix and configuration
+        filename. Arguments parsed are *added* to previously parsed arguments. Set self.arguments to None for a reset.
+        :param cli_args: a list formatted like sys.argv, or a dictionary like the result from argv_to_dict of arguments,
+            if None, sys.argv is used
+        :param aliases: a dictionary of aliases for switches, e.g. {'help': 'h'}
         :return: self
         """
-        # TODO: parse environment variables case-insensitive on Windows, currently case sensitive
+        if self.arguments is None:
+            self.arguments = {}
+
+        self.arguments = self.arguments | self._parse_arguments(cli_args, aliases)
+
+        # allow chaining
+        return self
+
+    def update_from_environment(self, env_vars: list = None, exclude_vars: List = None, env_var_prefix: str = None):
+        """
+        Update the Config with values from the system environment. If no specific `env_vars` are provided, any value
+        in the Config 'shadowed' by an environment variable will get updated. Globals will be picked up from the
+        environment if environment variable matches the global enclosed in braces (any prefix outside braces).
+        :param env_vars: specific variables to update or add from the environment, or None for pre-defined and prefixed
+        :param exclude_vars: variables that should not be updated (typically if env_vars is None)
+        :param env_var_prefix: prefix expected in front of every environment variables, e.g. 'MYAPP_'
+        :return: self
+        """
         if exclude_vars is None:
             exclude_vars = []
+
+        self.env_var_prefix = (
+            env_var_prefix if env_var_prefix is not None else
+            self.arguments['evp'][0] if self.arguments is not None and 'evp' in self.arguments else
+            self.env_var_prefix if self.env_var_prefix is not None else
+            ''
+        )
+
         environment = {}
+
         recursive_keys = self.recursive_keys()
+
         if env_vars is None:
+            # check for all existing keys for a matching value in the environment to add (and not excluded)
             for compound_key, key in recursive_keys.items():
-                if getenv(compound_key) is not None and self._case_safe(compound_key, exclude_vars) not in exclude_vars:
-                    environment[key] = getenv(compound_key)
+                if (getenv(self.env_var_prefix + compound_key) is not None and
+                        self._case_safe(compound_key, exclude_vars) not in exclude_vars):
+                    environment[key] = getenv(self.env_var_prefix + compound_key)
+            # add all correctly prefixed from the environment
+            if self.env_var_prefix != '':
+                env = nt_environ if os_name == 'nt' else os_environ
+                for var_name in env:
+                    if var_name.lower().startswith(self.env_var_prefix.lower()):
+                        v = var_name[(len(self.env_var_prefix)):]
+                        if v[0] == '{' and v[-1] == '}':
+                            environment[('_globals', v[1:-1])] = getenv(var_name)
+                            if self.globals is None:
+                                self.globals = {}
+                            self.globals[v[1:-1]] = None
+                        else:
+                            if v in recursive_keys:
+                                environment[recursive_keys[v]] = getenv(var_name)
+                            else:
+                                environment[v] = getenv(var_name)
+                                self[v] = None
+            # add existing globals found in environment in braces (if not excluded)
+            elif self.globals is not None:
+                for key in self.globals:
+                    if (getenv(f'{{{key}}}') is not None and
+                            self._case_safe(key, exclude_vars) not in exclude_vars):
+                        environment[('_globals', key)] = getenv(f'{{{key}}}')
+                        if self.globals is None:
+                            self.globals = {}
         else:
+            # check if the given keys are in the environment (and not excluded)
             for key in env_vars:
-                key = self._case_safe(key, recursive_keys)
-                if getenv(key) is not None and self._case_safe(key, exclude_vars) not in exclude_vars:
-                    if key in recursive_keys:
-                        environment[recursive_keys[key]] = getenv(key)
-                    else:
-                        environment[key] = getenv(key)
-                        self[key] = None
+                if key[0] == '{' and key[-1] == '}':
+                    if (getenv(self.env_var_prefix + key) is not None and
+                            self._case_safe(key, exclude_vars) not in exclude_vars):
+                        environment[('_globals', key)] = getenv(self.env_var_prefix + key)
+                        if self.globals is None:
+                            self.globals = {}
+                else:
+                    key = self._case_safe(key, recursive_keys)
+                    if (getenv(self.env_var_prefix + key) is not None and
+                            self._case_safe(key, exclude_vars) not in exclude_vars):
+                        if key in recursive_keys:
+                            environment[recursive_keys[key]] = getenv(self.env_var_prefix + key)
+                        else:
+                            # if the key didn't exist yet, add it and create it on the object
+                            environment[key] = getenv(self.env_var_prefix + key)
+                            self[key] = None
+
         # perform update with constructed environment (not using compound keys, for simplicity)
         for keys, value in environment.items():
-            d = self
-            for key in keys[:-1]:
-                d = d[key]
+            if keys[0] == '_globals':
+                d = self.globals
+                if keys[-1] not in d:
+                    continue
+            else:
+                d = self
+                for key in keys[:-1]:
+                    d = d[key]
             key = keys[-1]
 
             # for bool, check specific non-True values
@@ -587,6 +676,63 @@ class DictConfig(dict):
 
         # allow chaining
         return self
+
+    def update_from_arguments(self, cli_args: Union[Dict[str, list], list] = None, aliases: Dict[str, str] = None):
+        """
+        Update the Config with values parsed from the command line arguments. Overwriting values will be cast to the
+        same type as the overwritten value, all other values will remain str. Parameters with no value will be set to
+        True. If the config was created with `.from_file()` and `parse_args` was not False, it will use the arguments
+        available at the time.
+        :param cli_args: passed directly to .parse_arguments() if not None
+        :param aliases: passed directly to .parse_arguments() if cli_args is not None
+        :return: self
+        """
+        # if parse_arguments hasn't been called yet, or if new argument are passed, call parse_arguments
+        if cli_args is not None or self.arguments is None:
+            self.parse_arguments(cli_args, aliases)
+
+        for key, value in self.arguments.items():
+            if not key:
+                # first value of '' key is the name of the program
+                self.parameters = value[1:]
+            elif key not in ['evp', 'cfg']:
+                if (key[0], key[-1]) == ('{', '}'):
+                    key = key[1:-1]
+                    update = self._set_globals_from_args
+                else:
+                    update = self._set_value_from_args
+                # unpack single value lists
+                if len(value) == 1:
+                    update(key, value[0])
+                else:
+                    if not value:
+                        # set to True for empty value
+                        update(key, True)
+                    else:
+                        # set as list for multi-value
+                        update(key, value)
+
+        # allow chaining
+        return self
+
+    def full_update(self,
+                    env_vars: list = None, exclude_vars: List = None, env_var_prefix: str = None,
+                    cli_args: Union[Dict[str, list], list] = None, aliases: Dict[str, str] = None):
+        """
+        Calls .parse_arguments(), .update_from_environment() and .update_from_arguments() with provided arguments,
+        for convenience
+        :param cli_args: as cli_args in .parse_arguments()
+        :param aliases: as in .parse_arguments()
+        :param env_vars: as in .update_from_environment()
+        :param exclude_vars: as in .update_from_environment()
+        :param env_var_prefix: as in .update_from_environment()
+        :return: self
+        """
+        # default for parse_args is True, while default for args is None, map one default to the other
+        return self\
+            .parse_arguments(cli_args, aliases)\
+            .update_from_environment(env_vars, exclude_vars, env_var_prefix)\
+            .update_from_arguments()
 
 
 class Config(DictConfig):
