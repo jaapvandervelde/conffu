@@ -1,4 +1,4 @@
-import re
+from re import split
 from typing import DefaultDict, Dict, Union, TextIO, List, Any, Generator, Tuple
 from sys import argv
 from os import getenv, name as os_name, environ as os_environ
@@ -8,7 +8,7 @@ from io import StringIO, BytesIO
 from collections import defaultdict
 from pathlib import Path
 
-__version__ = '2.1.1'
+__version__ = '2.1.2'
 GLOBALS_KEY = '_globals'
 
 
@@ -52,7 +52,9 @@ class DictConfig(dict):
     :param no_globals bool: if not set, the value of the GLOBALS_KEY item will be take to be a dict of globals
         replacement values and this dict will be hidden from the DictConfig content
     :param no_key_error bool: if set, the DictConfig will not throw exceptions for non-existent keys (but return None)
-    :param skip_lists bool: if set, dictionaries inside lists won't be converted to DictConfig
+    :param skip_lists bool: (deprecated 2.1.0, use skip_iterables) if True, casting should not recurse into lists
+    :param skip_iterables bool: if set, dictionaries inside iterables (lists, tuples, subtypes) won't be forced to
+        match the type of self
 
     :example
 
@@ -66,14 +68,11 @@ class DictConfig(dict):
     >>> type(dc['sub'])
     <class 'configuration._configuration.DictConfig'>
     """
+    # aliases for arguments -cfg for .load() and -evp for .update_from_arguments()
     ARG_MAP = {'config': 'cfg', 'configuration': 'cfg', 'environment_variable_prefix': 'evp', 'env_var_prefix': 'evp'}
 
-    class _Globals(dict):
-        def __missing__(self, key):
-            return '{' + key + '}'
-
     def __init__(self, *args, no_globals: bool = False, no_key_error: bool = False, skip_lists: bool = False,
-                 no_compound_keys: bool = False):
+                 no_compound_keys: bool = False, skip_iterables: bool = False,):
         """
         Constructor method
         """
@@ -101,52 +100,69 @@ class DictConfig(dict):
         self.parameters = None
         self.from_arguments = []
         # replace dicts in Config with equivalent Config
-        self._dicts_to_config(self, skip_lists=skip_lists)
+        self._dicts_to_config(self, skip_iterables=skip_lists or skip_iterables)
 
-    def _dict_cast(self, a_dict: dict, from_type: type, to_type: type, skip_lists: bool = False) -> dict:
+    def _dict_cast(self, a_dict: dict, from_type: type, to_type: type, skip_iterables: bool = False) -> dict:
         """
-        Replace every instance of from_type in a_dict with a to_type configured like self, recursively so
-        if to_type is self.__class__
-        :param a_dict: a variable inheriting from dict, the values of which should be casted
+        Replace every dictionary of type `from_type` in a_dict with a dictionary of `to_type` configured like self,
+        and do so recursively if `to_type` is equal to `self.__class__`
+        :param a_dict: a variable inheriting from dict, the contents of which need to be cast
         :param from_type: a dict type to look for (either dict, or the DictConfig descendent type of self, typically)
         :param to_type: a dict type to cast to (either dict, or the DictConfig descendent type of self, typically)
-        :param skip_lists: whether dict elements of lists should be similarly cast, or left untouched
-        :return dict: the in-place modified a_dict is also returned
+        :param skip_iterables: whether dict elements of lists, tuples, or subtypes should be similarly cast
+        :return dict: the in-place modified a_dict is returned as well
         """
         for key in a_dict:
             if isinstance(a_dict[key], from_type):
-                self._dict_cast(a_dict[key], from_type, to_type, skip_lists)
+                self._dict_cast(a_dict[key], from_type, to_type, skip_iterables)
                 if to_type is self.__class__:
                     a_dict[key] = to_type(a_dict[key], no_globals=self.globals, no_key_error=self.no_key_error,
                                           no_compound_keys=self.no_compound_keys)
                 else:
                     a_dict[key] = to_type(a_dict[key])
-            elif not skip_lists and isinstance(a_dict[key], list):
-                a_dict[key] = [
+            elif not skip_iterables and (isinstance(a_dict[key], list) or isinstance(a_dict[key], tuple)):
+                a_dict[key] = a_dict[key].__class__(
                     part if not isinstance(part, from_type)
                     else (
-                        to_type(self._dict_cast(part, from_type, to_type, skip_lists),
+                        to_type(self._dict_cast(part, from_type, to_type, skip_iterables),
                                 no_globals=self.globals, no_key_error=self.no_key_error,
                                 no_compound_keys=self.no_compound_keys)
                         if to_type is self.__class__
-                        else to_type(self._dict_cast(part, from_type, to_type, skip_lists))
+                        else to_type(self._dict_cast(part, from_type, to_type, skip_iterables))
                     )
                     # don't accidentally replace globals at this time, as a_dict[key] will access __getitem__
                     for part in (a_dict._get_direct(key) if isinstance(a_dict, DictConfig) else a_dict[key])
-                ]
+                )
         return a_dict
 
-    def _dicts_to_config(self, d: dict, skip_lists=False):
-        return self._dict_cast(d, dict, self.__class__, skip_lists)
+    def _dicts_to_config(self, d: dict, skip_iterables=False) -> dict:
+        """
+        Convert dict values of d to the same type as self (some DictConfig)
+        :param d: dict with values to convert
+        :param skip_iterables: if True, _dict_cast should not recurse into iterables (lists, tuples, subtypes)
+        :return: d will have been modified in-place, and is returned
+        """
+        return self._dict_cast(d, dict, self.__class__, skip_iterables)
 
-    def _configs_to_dict(self, cfg, skip_lists=False):
-        return self._dict_cast(cfg, self.__class__, dict, skip_lists)
+    def _configs_to_dict(self, d: dict, skip_iterables=False) -> dict:
+        """
+        Convert values of d of the same type as self (some DictConfig) to dict
+        :param d: dict with values to convert
+        :param skip_iterables: if True, _dict_cast should not recurse into iterables (lists, tuples, subtypes)
+        :return: d will have been modified in-place, and is returned
+        """
+        return self._dict_cast(d, self.__class__, dict, skip_iterables)
 
     @staticmethod
-    def _split_key(key):
+    def _split_key(key: Union[str, list]) -> list:
+        """
+        Splits a compound configuration key into its parts and returns a list of a all parts
+        :param key: a compound key (with '.' as a separator)
+        :return: list of key parts
+        """
         if isinstance(key, str):
             # split over periods, except when they are preceded by a backslash
-            return re.split(r'(?<!\\)\.', key)
+            return split(r'(?<!\\)\.', key)
         elif isinstance(key, list):
             return key
         else:
@@ -177,6 +193,13 @@ class DictConfig(dict):
         :raises KeyError: if the key cannot be found (and self.no_key_error is True, None otherwise)
         """
         return dict.__getitem__(self, key)
+
+    class _Globals(dict):
+        """
+        Helper class for _subst_globals(), re-wrapping missing keys in {}
+        """
+        def __missing__(self, key: Any) -> str:
+            return '{' + key + '}'
 
     def _subst_globals(self, value: Any) -> Any:
         if self.globals is None:
@@ -257,26 +280,38 @@ class DictConfig(dict):
             except KeyError:
                 self[keys[:-1]] = self.__class__({keys[-1]: value})
 
-    def dict_copy(self, skip_lists: bool = False, with_globals: bool = True) -> dict:
+    def dict_copy(self, skip_lists: bool = False, with_globals: bool = True, skip_iterables: bool = False) -> dict:
         """
         Copy the DictConfig as a dict, recursively (turning nested DictConfig into dict as well)
-        :param skip_lists: if set, dictionaries in lists will be ignored (not converted)
+        :param skip_lists: (deprecated 2.1.0, use skip_iterables) if set, dictionaries in lists will not be cast
         :param with_globals: if set, globals will be included under the '_globals' key
+        :param skip_iterables: if set, dictionaries in lists will be ignored (not converted)
         :return: a dictionary copy of self
         """
         # constructs a dict copy
         result = dict(self)
         # recurse into the copy, replacing DictConfig with dict
-        self._configs_to_dict(result, skip_lists=skip_lists)
+        self._configs_to_dict(result, skip_iterables=skip_iterables or skip_lists)
         if with_globals:
             result[GLOBALS_KEY] = dict(self.globals)
         return result
 
-    def copy(self):
+    def copy(self) -> 'DictConfig':
+        """
+        Override to dict.copy, which would always return a `dict`, instead returning a copy with the same type as `self`
+        :return: a copy of self, of the same type
+        """
         return self.__class__(self.dict_copy())
 
     @classmethod
     def _xml2cfg(cls, root, **kwargs):
+        """
+        Takes an lxml root element and recursively parses it into a dict, which is then used to construct an instance
+        of `cls`.
+        :param root: xml.etree.ElementTree.Element root element of XML document
+        :param kwargs: parameters to pass on to the constructor of this class, with a dict with the XML contents
+        :return: an instance of `cls`
+        """
         if not len(root):
             ct = root.attrib['_type'] if '_type' in root.attrib else 'str'
             if ct == 'int':
@@ -304,7 +339,16 @@ class DictConfig(dict):
         return cls(result, **kwargs)
 
     @classmethod
-    def _cfg2xml(cls, item, tag, etree, cfg_globals=None, exclude=None):
+    def _cfg2xml(cls, item: Union[int, float, list, dict], tag: str, etree, cfg_globals=None, exclude=None):
+        """
+        Take a dict (typically an instance of `cls`) and construct an lxml Element tree
+        :param item: dict (or one of
+        :param tag: tag name for the root tag of the (sub)tree being constructed
+        :param etree: the ElementTree being constructed
+        :param cfg_globals: globals of the root DictConfig to add to the xml document
+        :param exclude: keys to exclude from the root DictConfig
+        :return: root xml.etree.ElementTree.Element of etree
+        """
         node = etree.Element(tag)
         if isinstance(item, int):
             node.attrib['_type'] = 'int'
@@ -329,6 +373,13 @@ class DictConfig(dict):
 
     @classmethod
     def _file_from_url(cls, url, url_kwargs):
+        """
+        Obtain a file-like object with the contents loaded from a URL
+        :param url: the URL to load
+        :param url_kwargs: keyword arguments to pass to request.urlopen
+        :return: file-like object as returned by request.urlopen
+        """
+        # only import urllib when it is actually used
         from urllib import request
         from urllib.parse import urlparse
         return request.urlopen(url, **url_kwargs), Path(urlparse(url).path).name
@@ -429,14 +480,14 @@ class DictConfig(dict):
                   require_file: bool = True, url_kwargs: dict = None, load_kwargs: dict = None,
                   **kwargs) -> 'DictConfig':
         """
-        Deprecated, use DictConfig.load()
+        Deprecated as of 2.1.0, use DictConfig.load()
         """
         return cls.load(file, file_type, no_arguments, require_file, url_kwargs, load_kwargs, **kwargs)
 
     def save(self, file: Union[TextIO, BytesIO, str] = None, file_type: str = None, include_globals: bool = True,
              include_from_arguments: bool = True, **kwargs):
         """
-        Save the config to a file of specified type
+        Save the config to a file of the specified type
         :param file: existing path to a file, if file exists, it will be overwritten (or file pointer open for writing)
         :param file_type: either a file extension ('json', etc.) or None (to use the suffix of `file`)
         :param include_globals: if True, globals (if any) will be written as part of the file, under GLOBAL_KEY
@@ -460,8 +511,9 @@ class DictConfig(dict):
 
         if file_type == 'json':
             # create a dict-based copy of data
-            data = self._configs_to_dict(self.__class__(self),
-                                         skip_lists=False if 'skip_lists' not in kwargs else kwargs['skip_lists'])
+            skip_iterables = 'skip_lists' in kwargs and kwargs['skip_lists']
+            skip_iterables = skip_iterables or ('skip_iterables' in kwargs and kwargs['skip_iterables'])
+            data = self._configs_to_dict(self.__class__(self), skip_iterables=skip_iterables)
             if include_globals:
                 # force globals to be at the start of data
                 data = {GLOBALS_KEY: self.globals, **data}
@@ -485,38 +537,6 @@ class DictConfig(dict):
                                  [] if include_from_arguments else self.from_arguments)
             etree.ElementTree(root).write(file, encoding='utf-8', xml_declaration=True, **kwargs)
 
-    def _set_value_from_args(self, k, v):
-        # existing key?
-        if k in self:
-            # for bool, check specific non-True values
-            if isinstance(self[k], bool):
-                self[k] = v.lower() not in ['0', 'false']
-            else:
-                # for other types, cast to type of existing key
-                t = type(self[k])
-                try:
-                    self[k] = t(v)
-                except ValueError:
-                    raise SyntaxError(f'Cannot cast {v} to {t} from arguments')
-        else:
-            # define new key
-            self.from_arguments.append(k)
-            self[k] = v
-
-    def _set_globals_from_args(self, k, v):
-        if self.globals is None:
-            self.globals = {}
-        # for bool, check specific non-True values
-        if k in self.globals and isinstance(self.globals[k], bool):
-            self.globals[k] = v.lower() not in ['0', 'false']
-        else:
-            # for other types, cast to type of existing key
-            t = type(self.globals[k]) if k in self.globals else type(v)
-            try:
-                self.globals[k] = t(v)
-            except ValueError:
-                raise SyntaxError(f'Cannot cast {v} to {t} from arguments')
-
     def _recursive_keys_tuples(self) -> Generator[Tuple[str, Tuple[str]], None, None]:
         for key, value in self.items():
             yield key, (key,)
@@ -532,7 +552,13 @@ class DictConfig(dict):
         return dict(self._recursive_keys_tuples())
 
     @staticmethod
-    def _case_safe(key, keys):
+    def _case_safe(key: str, keys: List[str]) -> str:
+        """
+        helper function used by .update_from_environment()
+        :param key: a key to match case for
+        :param keys: keys to match key to and return instead
+        :return: either key, or a case-insensitive matching key from keys
+        """
         # only on Windows, replace the key with a matching key ignoring case
         if os_name == 'nt':
             for k in keys:
@@ -542,6 +568,12 @@ class DictConfig(dict):
 
     @classmethod
     def _parse_arguments(cls, cli_args: Union[Dict[str, list], list] = None, aliases: Dict[str, str] = None):
+        """
+        helper function used by .parse_arguments()
+        :param cli_args: as for .parse_arguments()
+        :param aliases: as for .parse_arguments()
+        :return: parsed arguments as a dict or the same type as cli_args
+        """
         if isinstance(cli_args, dict):
             if isinstance(cli_args, defaultdict):
                 # noinspection PyArgumentList
@@ -677,6 +709,50 @@ class DictConfig(dict):
         # allow chaining
         return self
 
+    def _set_value_from_args(self, k, v):
+        """
+        helper function used by .update_from_arguments()
+        :param k: key for value to set
+        :param v: value to set
+        :return: None
+        """
+        # is k an existing key?
+        if k in self:
+            # for bool, check specific non-True values
+            if isinstance(self[k], bool):
+                self[k] = v.lower() not in ['0', 'false']
+            else:
+                # for other types, cast to type of existing key
+                t = type(self[k])
+                try:
+                    self[k] = t(v)
+                except ValueError:
+                    raise SyntaxError(f'Cannot cast {v} to {t} from arguments')
+        else:
+            # define new key
+            self.from_arguments.append(k)
+            self[k] = v
+
+    def _set_globals_from_args(self, k, v):
+        """
+        helper function used by .update_from_arguments()
+        :param k: key for value to set
+        :param v: value to set
+        :return: None
+        """
+        if self.globals is None:
+            self.globals = {}
+        # for bool, check specific non-True values
+        if k in self.globals and isinstance(self.globals[k], bool):
+            self.globals[k] = v.lower() not in ['0', 'false']
+        else:
+            # for other types, cast to type of existing key
+            t = type(self.globals[k]) if k in self.globals else type(v)
+            try:
+                self.globals[k] = t(v)
+            except ValueError:
+                raise SyntaxError(f'Cannot cast {v} to {t} from arguments')
+
     def update_from_arguments(self, cli_args: Union[Dict[str, list], list] = None, aliases: Dict[str, str] = None):
         """
         Update the Config with values parsed from the command line arguments. Overwriting values will be cast to the
@@ -744,6 +820,9 @@ class Config(DictConfig):
     >>> dc = Config({'foo': 'bar'})
     >>> print(dc.foo)
     'bar'
+    >>> dc.foo = 'qux'
+    >>> print(dc['foo'])
+    'qux'
     """
     def __getattr__(self, attr):
         if attr in self:

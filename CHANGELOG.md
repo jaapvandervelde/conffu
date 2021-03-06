@@ -1,5 +1,19 @@
 # Changelog
 
+## To do
+
+ - on next major version, remove deprecated `skip_lists`
+ - on next major version, remove deprecated `.from_file()`
+
+## [2.1.2] - ???
+
+### Changed
+  - [deprecated] renamed `skip_lists` to `skip_iterables` as it works for list, tuple and subtypes
+
+### Fixes
+  - issue with environment variable case
+  - added missing documentation on methods
+
 ## [2.1.1] - 2021-03-05
 
 ### Changed
@@ -9,7 +23,7 @@
 
 ### Changed
   - centralised CLI parameter parsing, exposed as `.parse_arguments()`
-  - [breaking] renamed some core methods and parameters to reflect function (`from_file` is now `load` with `source`, etc.)
+  - [deprecated] renamed some core methods and parameters to reflect function (`from_file` is now `load` with `source`, etc.)
 
 ### Added
   - environment variables can now be added based on a prefix, without being predefined in the config
