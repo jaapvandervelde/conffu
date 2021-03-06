@@ -4,14 +4,19 @@ from conffu import DictConfig, Config
 
 class TestConfig(unittest.TestCase):
     def test_init_basic(self):
-        cfg = DictConfig({'test': 1, 'more': 'string', 'number': 1.3})
+        cfg = DictConfig({'test': 1, 'more': 'string', 'number': 1.3, 'list': [1, 2]})
         self.assertEqual(1, cfg['test'], msg='int value should match')
+        self.assertIsInstance(cfg['test'], int, msg='int value maintains int type')
         self.assertEqual('string', cfg['more'], msg='str value should match')
+        self.assertIsInstance(cfg['more'], str, msg='str value maintains str type')
         self.assertEqual(1.3, cfg['number'], msg='float value should match')
+        self.assertIsInstance(cfg['number'], float, msg='float value maintains float type')
+        self.assertEqual([1, 2], cfg['list'], msg='list value should match')
+        self.assertIsInstance(cfg['list'], list, msg='list value maintains list type')
 
     def test_init_nested(self):
         cfg = DictConfig({'test': 1, 'more': {'content': 'string'}})
-        self.assertNotIsInstance(cfg['more'], Config, msg='inner dicts should be converted to same DictConfig type')
+        self.assertIsInstance(cfg['more'], DictConfig, msg='inner dicts should be converted to same DictConfig type')
         self.assertEqual('string', cfg['more']['content'], msg='value in inner dict should match')
         cfg = Config({'test': 1, 'more': {'content': 'string'}})
         self.assertIsInstance(cfg['more'], Config, msg='inner dicts should be converted to same Config type')
@@ -26,7 +31,7 @@ class TestConfig(unittest.TestCase):
 
     def test_init_nested_list(self):
         cfg = DictConfig({'test': 1, 'more': [{'content': 'string'}]})
-        self.assertNotIsInstance(cfg['more'][0], Config, msg='inner dicts in lists should be converted to Config')
+        self.assertIsInstance(cfg['more'][0], DictConfig, msg='inner dicts in lists should be converted to Config')
         self.assertEqual('string', cfg['more'][0]['content'], msg='value in inner dict in list should match')
         cfg = Config({'test': 1, 'more': [{'content': 'string'}]})
         self.assertIsInstance(cfg['more'][0], Config, msg='inner dicts in lists should be converted to Config')
@@ -40,7 +45,7 @@ class TestConfig(unittest.TestCase):
         self.assertEqual('string', cfg['more'][0]['content'], msg='value in inner dict in list should match')
 
     def test_init_nested_skip_list(self):
-        cfg = DictConfig({'test': 1, 'more': [{'content': 'string'}]}, skip_lists=True)
+        cfg = DictConfig({'test': 1, 'more': [{'content': 'string'}]}, skip_iterables=True)
         self.assertIsInstance(cfg['more'][0], dict, msg='inner dicts in skipped lists should be dict')
         self.assertEqual('string', cfg['more'][0]['content'], msg='value in inner dict in skipped list should match')
 
@@ -113,6 +118,27 @@ class TestConfig(unittest.TestCase):
                          },
                          cfg.recursive_keys(),
                          'compound keys are generated in order, depth-first')
+
+    def test_copy(self):
+        cfg = Config({'1': 2})
+        cfg_copy = cfg.copy()
+        self.assertIsInstance(cfg_copy, Config, '.copy maintains original type Config')
+        cfg = DictConfig({'1': 2})
+        cfg_copy = cfg.copy()
+        self.assertIsInstance(cfg_copy, DictConfig)
+        self.assertIsInstance(cfg_copy, DictConfig, '.copy maintains original type DictConfig')
+        d_copy = cfg.dict_copy()
+        self.assertNotIsInstance(d_copy, DictConfig, '.dict_copy returns dict type copy instead of DictConfig')
+        cfg = DictConfig({'1': 2, '3': {4: 5}, '6': [{'7': 8}]})
+        self.assertIsInstance(cfg['3'], DictConfig, 'dictionary value matches self value')
+        self.assertIsInstance(cfg['6'][0], DictConfig, 'dictionary value in list matches self value')
+        d_copy = cfg.dict_copy(with_globals=False)
+        self.assertNotIsInstance(d_copy['3'], DictConfig, '.copy returns dict value types')
+        self.assertEqual({'1': 2, '3': {4: 5}, '6': [{'7': 8}]}, d_copy)
+        cfg = DictConfig({'_globals': {'a': 'b'}, '1': 2, '3': {4: 5}, '6': [{'7': 8}]})
+        d_copy = cfg.dict_copy()
+        self.assertEqual({'1': 2, '3': {4: 5}, '6': [{'7': 8}], '_globals': {'a': 'b'}}, d_copy,
+                         'globals survive dict_copy')
 
     def test_attr(self):
         cfg = Config()

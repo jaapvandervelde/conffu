@@ -52,7 +52,7 @@ class DictConfig(dict):
     :param no_globals bool: if not set, the value of the GLOBALS_KEY item will be take to be a dict of globals
         replacement values and this dict will be hidden from the DictConfig content
     :param no_key_error bool: if set, the DictConfig will not throw exceptions for non-existent keys (but return None)
-    :param skip_lists bool: (deprecated 2.1.0, use skip_iterables) if True, casting should not recurse into lists
+    :param skip_lists bool: (deprecated 2.1.2, use skip_iterables) if True, casting should not recurse into lists
     :param skip_iterables bool: if set, dictionaries inside iterables (lists, tuples, subtypes) won't be forced to
         match the type of self
 
@@ -283,7 +283,7 @@ class DictConfig(dict):
     def dict_copy(self, skip_lists: bool = False, with_globals: bool = True, skip_iterables: bool = False) -> dict:
         """
         Copy the DictConfig as a dict, recursively (turning nested DictConfig into dict as well)
-        :param skip_lists: (deprecated 2.1.0, use skip_iterables) if set, dictionaries in lists will not be cast
+        :param skip_lists: (deprecated 2.1.2, use skip_iterables) if set, dictionaries in lists will not be cast
         :param with_globals: if set, globals will be included under the '_globals' key
         :param skip_iterables: if set, dictionaries in lists will be ignored (not converted)
         :return: a dictionary copy of self
@@ -293,7 +293,7 @@ class DictConfig(dict):
         # recurse into the copy, replacing DictConfig with dict
         self._configs_to_dict(result, skip_iterables=skip_iterables or skip_lists)
         if with_globals:
-            result[GLOBALS_KEY] = dict(self.globals)
+            result[GLOBALS_KEY] = dict(self.globals) if self.globals is not None else {}
         return result
 
     def copy(self) -> 'DictConfig':

@@ -5,7 +5,7 @@
  - on next major version, remove deprecated `skip_lists`
  - on next major version, remove deprecated `.from_file()`
 
-## [2.1.2] - ???
+## [2.1.2] - 2021-03-06
 
 ### Changed
   - [deprecated] renamed `skip_lists` to `skip_iterables` as it works for list, tuple and subtypes
@@ -13,6 +13,7 @@
 ### Fixes
   - issue with environment variable case
   - added missing documentation on methods
+  - updated unit tests
 
 ## [2.1.1] - 2021-03-05
 
