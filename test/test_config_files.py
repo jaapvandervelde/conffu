@@ -3,6 +3,8 @@ import inspect
 import tempfile
 from pathlib import Path
 from conffu import Config
+# noinspection PyProtectedMember
+from conffu._config import argv_to_dict
 from subprocess import Popen, DEVNULL
 
 
@@ -49,35 +51,50 @@ class TestConfig(unittest.TestCase):
         self._cfg.save(Path(self.tmpdir.name) / 'config_copy.json')
         cfg = Config.load(Path(self.tmpdir.name) / 'config_copy.json')
         self._check_config(cfg)
-        self.assertEqual(cfg, self._cfg)
+        self.assertEqual(cfg, self._cfg, 'JSON loaded from file identical')
 
     def test_xml_roundtrip(self):
         self._cfg.save(Path(self.tmpdir.name) / 'config_copy.xml')
         cfg = Config.load(Path(self.tmpdir.name) / 'config_copy.xml')
         self._check_config(cfg)
-        self.assertEqual(cfg, self._cfg)
+        self.assertEqual(cfg, self._cfg, 'XML loaded from file identical')
 
     def test_pickle_roundtrip(self):
         self._check_config(self._cfg)
         self._cfg.save(Path(self.tmpdir.name) / 'config_copy.pickle')
         cfg = Config.load(Path(self.tmpdir.name) / 'config_copy.pickle')
         self._check_config(cfg)
-        self.assertEqual(cfg, self._cfg)
+        self.assertEqual(cfg, self._cfg, 'pickle loaded from file identical')
 
     def test_from_url_text(self):
         self._cfg.save(Path(self.tmpdir.name) / 'config_copy.json')
-        p = Popen(['python', '-m', 'http.server'], cwd=self.tmpdir.name, stderr=DEVNULL, stdout=DEVNULL)
-        cfg = Config.load('http://localhost:8000/config_copy.json?foo=bar')
-        self._check_config(cfg)
-        self.assertEqual(cfg, self._cfg)
-        p.terminate()
-        p.wait()
+        p = None
+        try:
+            p = Popen(['python', '-m', 'http.server'], cwd=self.tmpdir.name, stderr=DEVNULL, stdout=DEVNULL)
+            cfg = Config.load('http://localhost:8000/config_copy.json?foo=bar')
+            self._check_config(cfg)
+            self.assertEqual(cfg, self._cfg, 'json loaded from URL identical')
+            cfg = Config.load('http://localhost:8000/config_copy.json?foo=bar', url_header='Cookie=api_key\=1234')
+            self.assertEqual(cfg, self._cfg, 'load not affected by header')
+        finally:
+            p.terminate()
+            p.wait()
 
     def test_from_url_bin(self):
         self._cfg.save(Path(self.tmpdir.name) / 'config_copy.pickle')
-        p = Popen(['python', '-m', 'http.server'], cwd=self.tmpdir.name, stderr=DEVNULL, stdout=DEVNULL)
-        cfg = Config.load('http://localhost:8000/config_copy.pickle?foo=bar')
-        self._check_config(cfg)
+        p = None
+        try:
+            p = Popen(['python', '-m', 'http.server'], cwd=self.tmpdir.name, stderr=DEVNULL, stdout=DEVNULL)
+            cfg = Config.load('http://localhost:8000/config_copy.pickle?foo=bar')
+            self._check_config(cfg)
+            self.assertEqual(cfg, self._cfg)
+        finally:
+            p.terminate()
+            p.wait()
+
+    def test_json_from_argument(self):
+        p = Path(self.tmpdir.name) / 'config_copy.json'
+        self._cfg.save(p)
+        args = argv_to_dict(['script.py', '-cfg', str(p)])
+        cfg = Config.load(cli_args=args)
         self.assertEqual(cfg, self._cfg)
-        p.terminate()
-        p.wait()

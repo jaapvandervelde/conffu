@@ -43,6 +43,11 @@ class TestConfig(unittest.TestCase):
         cfg = Config().update_from_arguments(args)
         self.assertEqual(cfg['a'], True, msg='argument without parameters should be True in Config')
 
+    def test_config_argument_full_update(self):
+        args = argv_to_dict(['script.py', '-a'])
+        cfg = Config().full_update(cli_args=args)
+        self.assertEqual(cfg['a'], True, msg='argument without parameters should be True in Config')
+
     def test_config_argument_parameter(self):
         args = argv_to_dict(['script.py', '-a', '1'])
         cfg = Config().update_from_arguments(args)

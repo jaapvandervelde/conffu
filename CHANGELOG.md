@@ -2,8 +2,22 @@
 
 ## To do
 
- - on next major version, remove deprecated `skip_lists`
- - on next major version, remove deprecated `.from_file()`
+When next major version is released (3.x), these breaking changes will be applied:
+ - remove deprecated `skip_lists` from all methods
+ - remove deprecated `.from_file()`
+ - remove deprecated `no_arguments` from `.load()`
+
+## [2.1.3] - 2021-03-06
+
+### Added
+  - `url_header` parameter on `.load()`, to allow for passing header fields to URL load.
+  - `-rh` (`--request_header`, `--header`) command line option added to pass `url_header` for `.load()` on the CL<br>Example: 
+```none
+    script.py -cfg http://localhost:8000/my.json -rh "cookie=key\=one\&two&other_key=value with spaces"
+```
+
+### Changed
+  - [deprecated] changed `no_arguments` on `.load()` to `cli_args`, matching `.parse_arguments()` with allowed added value of `False`, to allow for the case where a developer needs to pass arguments to the `.load()` method instead of using the actual arguments passed on the command line. This makes `no_arguments` deprecated. 
 
 ## [2.1.2] - 2021-03-06
 

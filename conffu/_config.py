@@ -1,4 +1,4 @@
-from re import split
+from re import split, sub
 from typing import DefaultDict, Dict, Union, TextIO, List, Any, Generator, Tuple
 from sys import argv
 from os import getenv, name as os_name, environ as os_environ
@@ -8,7 +8,7 @@ from io import StringIO, BytesIO
 from collections import defaultdict
 from pathlib import Path
 
-__version__ = '2.1.2'
+__version__ = '2.1.3'
 GLOBALS_KEY = '_globals'
 
 
@@ -69,7 +69,11 @@ class DictConfig(dict):
     <class 'configuration._configuration.DictConfig'>
     """
     # aliases for arguments -cfg for .load() and -evp for .update_from_arguments()
-    ARG_MAP = {'config': 'cfg', 'configuration': 'cfg', 'environment_variable_prefix': 'evp', 'env_var_prefix': 'evp'}
+    ARG_MAP = {
+        'config': 'cfg', 'configuration': 'cfg',
+        'environment_variable_prefix': 'evp', 'env_var_prefix': 'evp',
+        'request_header': 'rh', 'header': 'rh'
+    }
 
     def __init__(self, *args, no_globals: bool = False, no_key_error: bool = False, skip_lists: bool = False,
                  no_compound_keys: bool = False, skip_iterables: bool = False,):
@@ -372,39 +376,55 @@ class DictConfig(dict):
         return node
 
     @classmethod
-    def _file_from_url(cls, url, url_kwargs):
+    def _file_from_url(cls, url: str, url_header: Union[dict, str]):
         """
         Obtain a file-like object with the contents loaded from a URL
         :param url: the URL to load
-        :param url_kwargs: keyword arguments to pass to request.urlopen
+        :param url_header: key value pairs to send as a header
         :return: file-like object as returned by request.urlopen
         """
         # only import urllib when it is actually used
         from urllib import request
         from urllib.parse import urlparse
-        return request.urlopen(url, **url_kwargs), Path(urlparse(url).path).name
+        req = request.Request(url)
+        if isinstance(url_header, str):
+            try:
+                url_header = {
+                    k: sub(r'\\(.)', r'\1', v)
+                    for k, v in [split(r'(?<!\\)=', pair) for pair in split(r'(?<!\\)&', url_header)]
+                }
+            except ValueError:
+                raise ValueError(f'Invalid header fields: {url_header}')
+        for k, v in url_header.items():
+            req.add_header(k, v)
+        return request.urlopen(req), Path(urlparse(url).path).name
 
     @classmethod
-    def load(cls, source: Union[TextIO, BytesIO, str] = None, file_type: str = None, no_arguments: bool = False,
-             require_file: bool = True, url_kwargs: dict = None, load_kwargs: dict = None, **kwargs) -> 'DictConfig':
+    def load(cls, source: Union[TextIO, BytesIO, str] = None, file_type: str = None,
+             no_arguments: bool = False, require_file: bool = True, url_header: Union[dict, str] = None,
+             load_kwargs: dict = None, cli_args: Union[Dict[str, list], list, bool] = None,
+             **kwargs) -> 'DictConfig':
         """
         Factory method that loads a Config from file and initialises a new instance with the contents.
         Currently only supports .json and .pickle
         :param source: existing configuration filename, url, or open file pointer
         :param file_type: either a file extension ('json', etc.) or None (will use the suffix of `filename`)
-        :param no_arguments: whether to obtain a source from the command line arguments, if source is None
+        :param no_arguments: (deprecated 2.1.2, use cli_args)
+        :param cli_args: cli_args to pass to parse_arguments() if source is None, unless cli_args is False
         :param require_file: whether a configuration file is required (otherwise command line args only is accepted)
-        :param url_kwargs: a dictionary containing keyword arguments to pass to a request urlopen method
+        :param url_header: a dictionary containing key values pairs to pass to a url request as a header, or a string
+            encoded as the -rh parameter, e.g. 'key=value&key=value\\=\\&more'
         :param load_kwargs: a dictionary containing keyword arguments to pass to the format-specific load method
         :param kwargs: additional keyword arguments passed to Config constructor
         :return: initialised DictConfig instance
         """
         cfg = None
+        args = None
         if source is None:
-            if not no_arguments:
-                cli_args = cls._parse_arguments()
-                if 'cfg' in cli_args:
-                    source = cli_args['cfg'][0]
+            if no_arguments is not True and cli_args is not False:
+                args = cls._parse_arguments(cli_args=cli_args)
+                if 'cfg' in args:
+                    source = args['cfg'][0]
         if source is None:
             if require_file:
                 raise SyntaxError('from_file requires a file parameter or configuration should be passed on the cli')
@@ -425,7 +445,12 @@ class DictConfig(dict):
                 except OSError:
                     try:
                         # at this point, file is neither a handle nor a valid file name, try it as a URL
-                        source, filename = cls._file_from_url(source, url_kwargs if url_kwargs is not None else {})
+                        if url_header is None and cli_args is not False:
+                            if args is None:
+                                args = cls._parse_arguments(cli_args)
+                            if 'rh' in args:
+                                url_header = args['rh'][0]
+                        source, filename = cls._file_from_url(source, url_header if url_header is not None else {})
                     except IOError:
                         # at this point, file is neither a handle, a valid file name or a valid URL
                         raise FileExistsError(f'Config file {source} not found.')
@@ -771,7 +796,7 @@ class DictConfig(dict):
             if not key:
                 # first value of '' key is the name of the program
                 self.parameters = value[1:]
-            elif key not in ['evp', 'cfg']:
+            elif key not in ['evp', 'cfg', 'rh']:
                 if (key[0], key[-1]) == ('{', '}'):
                     key = key[1:-1]
                     update = self._set_globals_from_args
