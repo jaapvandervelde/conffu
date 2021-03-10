@@ -7,6 +7,12 @@ When next major version is released (3.x), these breaking changes will be applie
  - remove deprecated `.from_file()`
  - remove deprecated `no_arguments` from `.load()`
 
+## [2.1.4] - 2021-03-10
+
+### Fixes
+  - test using `http.server` would call `request.urlopen` before the server had started on Linux
+  - `/` was recognised as a switch character on Linux, but should only be so on Windows
+
 ## [2.1.3] - 2021-03-06
 
 ### Added
