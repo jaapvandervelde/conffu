@@ -8,6 +8,7 @@ from conffu._config import argv_to_dict
 from subprocess import Popen, DEVNULL
 from urllib import request
 from urllib.error import URLError
+from time import sleep
 
 
 class TestConfig(unittest.TestCase):
@@ -41,6 +42,7 @@ class TestConfig(unittest.TestCase):
             except URLError:
                 retries -= 1
                 if retries > 0:
+                    sleep(.1)
                     continue
                 else:
                     return False
