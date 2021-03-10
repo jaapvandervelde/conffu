@@ -3,7 +3,7 @@ from conffu import Config
 # noinspection PyProtectedMember
 from conffu._config import argv_to_dict
 from io import StringIO
-
+from os import name as os_name
 
 class TestConfig(unittest.TestCase):
     def test_argv_to_dict_no_arguments(self):
@@ -16,13 +16,22 @@ class TestConfig(unittest.TestCase):
 
     def test_argv_to_dict_switch_argument(self):
         args = argv_to_dict(['script.py', '-a', '--b', '/c', '//', '---', '/--'])
-        self.assertEqual({'': ['script.py'], 'a': [], 'b': [], 'c': [], '/': [], '-': [], '--': []}, args,
-                         msg='switch argument with -/--// should get own key')
+        if os_name == 'nt':
+            self.assertEqual({'': ['script.py'], 'a': [], 'b': [], 'c': [], '/': [], '-': [], '--': []}, args,
+                             msg='switch argument with -/--// should get own key')
+        else:
+            self.assertEqual({'': ['script.py'], 'a': [], 'b': ['/c', '//'], '-': ['/--']}, args,
+                             msg='switch argument with -/-- should get own key')
 
     def test_argv_to_dict_aliases(self):
-        args = argv_to_dict(['script.py', '-ax', '--bxx', '/c-'], aliases={'ax': 'a', 'bxx': 'b', 'c-': 'c'})
-        self.assertEqual({'': ['script.py'], 'a': [], 'b': [], 'c': []}, args,
-                         msg='switch argument should get mapped to alias')
+        if os_name == 'nt':
+            args = argv_to_dict(['script.py', '-ax', '--bxx', '/c-'], aliases={'ax': 'a', 'bxx': 'b', 'c-': 'c'})
+            self.assertEqual({'': ['script.py'], 'a': [], 'b': [], 'c': []}, args,
+                             msg='switch argument should get mapped to alias')
+        else:
+            args = argv_to_dict(['script.py', '-ax', '--bxx', '-c-'], aliases={'ax': 'a', 'bxx': 'b', 'c-': 'c'})
+            self.assertEqual({'': ['script.py'], 'a': [], 'b': [], 'c': []}, args,
+                             msg='switch argument should get mapped to alias')
 
     def test_argv_to_dict_parameters(self):
         args = argv_to_dict(['script.py', '-a', '1', '2', '--bb', 'a b  c '], aliases={'bb': 'b'})
