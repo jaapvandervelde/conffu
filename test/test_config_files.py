@@ -6,6 +6,8 @@ from conffu import Config
 # noinspection PyProtectedMember
 from conffu._config import argv_to_dict
 from subprocess import Popen, DEVNULL
+from urllib import request
+from urllib.error import URLError
 
 
 class TestConfig(unittest.TestCase):
@@ -28,6 +30,21 @@ class TestConfig(unittest.TestCase):
 
     def tearDown(self):
         self.tmpdir.cleanup()
+
+    @staticmethod
+    def _wait_for_server(url):
+        retries = 100
+        while True:
+            try:
+                request.urlopen(url)
+                return True
+            except URLError:
+                retries -= 1
+                if retries > 0:
+                    continue
+                else:
+                    return False
+
 
     def _check_config(self, cfg):
         context = inspect.stack()[1][3]
@@ -71,6 +88,7 @@ class TestConfig(unittest.TestCase):
         p = None
         try:
             p = Popen(['python', '-m', 'http.server'], cwd=self.tmpdir.name, stderr=DEVNULL, stdout=DEVNULL)
+            self.assertTrue(self._wait_for_server('http://localhost:8000'), 'test server online')
             cfg = Config.load('http://localhost:8000/config_copy.json?foo=bar')
             self._check_config(cfg)
             self.assertEqual(cfg, self._cfg, 'json loaded from URL identical')
@@ -85,6 +103,7 @@ class TestConfig(unittest.TestCase):
         p = None
         try:
             p = Popen(['python', '-m', 'http.server'], cwd=self.tmpdir.name, stderr=DEVNULL, stdout=DEVNULL)
+            self.assertTrue(self._wait_for_server('http://localhost:8000'), 'test server online')
             cfg = Config.load('http://localhost:8000/config_copy.pickle?foo=bar')
             self._check_config(cfg)
             self.assertEqual(cfg, self._cfg)
