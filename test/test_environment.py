@@ -1,7 +1,8 @@
 import unittest
 from conffu import Config
 from os import environ, getenv, unsetenv, name as os_name
-from nt import environ as nt_environ
+if os_name == 'nt':
+    from nt import environ as nt_environ
 
 
 class TestConfig(unittest.TestCase):
