@@ -8,6 +8,7 @@ Install the package:
 ```
 pip install conffu
 ```
+Note: on Linux, you may need to install `libffi-dev` and re-install Python if installation causes a 'No module named `_ctypes` error'. This is not specific to `conffu`, but any package requiring `_ctypes` in one of its dependencies.
 
 If you want to be able to read/write XML configurations as well, there is a dependency on `lxml`, install using:
 ```

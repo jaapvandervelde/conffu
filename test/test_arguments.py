@@ -5,6 +5,7 @@ from conffu._config import argv_to_dict
 from io import StringIO
 from os import name as os_name
 
+
 class TestConfig(unittest.TestCase):
     def test_argv_to_dict_no_arguments(self):
         args = argv_to_dict(['script.py'])
