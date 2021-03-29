@@ -8,7 +8,7 @@ from io import StringIO, BytesIO
 from collections import defaultdict
 from pathlib import Path
 
-__version__ = '2.1.4'
+__version__ = '2.1.5'
 GLOBALS_KEY = '_globals'
 
 if os_name == 'nt':
@@ -193,6 +193,24 @@ class DictConfig(dict):
         if not super(DictConfig, self).__contains__(keys[0]):
             return False
         return (len(keys) == 1) or (keys[1:] in self[keys[0]])
+
+    def __or__(self, other):
+        if not isinstance(other, dict):
+            return NotImplemented
+        new = self.__class__(self)
+        new.update(other)
+        return new
+
+    def __ror__(self, other):
+        if not isinstance(other, dict):
+            return NotImplemented
+        new = self.__class__(other)
+        new.update(self)
+        return new
+
+    def __ior__(self, other):
+        self.__class__.update(self, other)
+        return self
 
     def _get_direct(self, key: str) -> Any:
         """

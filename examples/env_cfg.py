@@ -46,6 +46,6 @@ Or alternatively, to avoid a `path` variable getting overwritten (ignoring or in
 """
 
 # require_file is set to False to allow for cases where there's no loadable .cfg on the command line
-cfg = Config.load(require_file=False).full_update()
+cfg = Config.load(require_file=False).full_update(env_vars=['y'])
 
 pprint(cfg.subst_globals())

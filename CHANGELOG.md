@@ -7,6 +7,11 @@ When next major version is released (3.x), these breaking changes will be applie
  - remove deprecated `.from_file()`
  - remove deprecated `no_arguments` from `.load()`
 
+## [2.1.5] - 2021-03-29
+
+### Added
+  - Support for `|` update operator, to avoid the result always being a dict - preserves type.
+
 ## [2.1.4] - 2021-03-10
 
 ### Fixes

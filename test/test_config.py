@@ -151,6 +151,19 @@ class TestConfig(unittest.TestCase):
         del cfg.test
         self.assertEqual(2, cfg.test, 'if no longer shadowed by an attribute, keys can be access as attribute')
 
+    def test_update(self):
+        cfg = Config({1: 'a'})
+        cfg = cfg | Config({1: 'b', 2: 'c'})
+        self.assertEqual(('b', 'c'), (cfg[1], cfg[2]), 'updated values are correct')
+        self.assertIsInstance(cfg, Config, msg='update should not affect type')
+
+        cfg = DictConfig({1: 'a'})
+        cfg = cfg | Config({1: 'b', 2: 'c'})
+        self.assertIsInstance(cfg, DictConfig, msg='update with different Config type should not affect type')
+
+        cfg = cfg | {1: 'b', 2: 'c'}
+        self.assertIsInstance(cfg, DictConfig, msg='update with dict should not affect type')
+
 
 if __name__ == '__main__':
     unittest.main()
