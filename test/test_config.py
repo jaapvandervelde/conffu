@@ -75,6 +75,14 @@ class TestConfig(unittest.TestCase):
         self.assertEqual('1={x}', cfg['test'][1], msg='escaped braces in lists should be unescaped')
         self.assertFalse('_globals' in cfg, msg='globals should be hidden')
 
+    def test_globals_list_config(self):
+        cfg = DictConfig({'_globals': {'x': 1}, 'a': {'b': '{x}'}, 'c': [{'d': '{x}'}]})
+        cfg_a = cfg['a']
+        self.assertFalse('_globals' in cfg_a, msg='globals should be hidden for extracted child')
+        self.assertEqual('1', cfg_a['b'], msg='globals should be propagated to Config child')
+        cfg_list = cfg['c']
+        self.assertEqual('1', cfg_list[0]['d'], msg='globals should be propagated to Config children in lists')
+
     def test_globals_noglobals(self):
         cfg = DictConfig({'_globals': {'x': 1}, 'test': '1={x}', 'escaped': '1={{x}}'}, no_globals=True)
         self.assertEqual('1={x}', cfg['test'], msg='noglobals, globals should not be replaced')

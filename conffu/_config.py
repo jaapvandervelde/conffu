@@ -8,7 +8,7 @@ from io import StringIO, BytesIO
 from collections import defaultdict
 from pathlib import Path
 
-__version__ = '2.1.5'
+__version__ = '2.1.6'
 GLOBALS_KEY = '_globals'
 
 if os_name == 'nt':
@@ -241,8 +241,12 @@ class DictConfig(dict):
                 # noinspection PyArgumentList
                 return value.__class__(self._subst_globals(v) for v in value)
             elif isinstance(value, dict):
-                # noinspection PyArgumentList
-                return value.__class__({k: self._subst_globals(v) for k, v in value.items()})
+                if isinstance(value, Config):
+                    # return the config at this time, as it will perform replacements when needed (if needed)
+                    return value
+                else:
+                    # noinspection PyArgumentList
+                    return value.__class__({k: self._subst_globals(v) for k, v in value.items()})
             else:
                 return value
 

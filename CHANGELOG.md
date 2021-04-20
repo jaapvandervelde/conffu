@@ -7,6 +7,11 @@ When next major version is released (3.x), these breaking changes will be applie
  - remove deprecated `.from_file()`
  - remove deprecated `no_arguments` from `.load()`
 
+## [2.1.6] - 2021-04-20
+
+### Fixed
+  - Child Configs, when extracted, should inherited the parent's globals, even when in an iterable. Previously they would be pre-emptively replaced. 
+
 ## [2.1.5] - 2021-03-29
 
 ### Added

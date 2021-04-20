@@ -47,7 +47,6 @@ class TestConfig(unittest.TestCase):
                 else:
                     return False
 
-
     def _check_config(self, cfg):
         context = inspect.stack()[1][3]
         self.assertTrue(cfg.globals)
@@ -94,7 +93,7 @@ class TestConfig(unittest.TestCase):
             cfg = Config.load('http://localhost:8000/config_copy.json?foo=bar')
             self._check_config(cfg)
             self.assertEqual(cfg, self._cfg, 'json loaded from URL identical')
-            cfg = Config.load('http://localhost:8000/config_copy.json?foo=bar', url_header='Cookie=api_key\=1234')
+            cfg = Config.load('http://localhost:8000/config_copy.json?foo=bar', url_header='Cookie=api_key\\=1234')
             self.assertEqual(cfg, self._cfg, 'load not affected by header')
         finally:
             p.terminate()
