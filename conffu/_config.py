@@ -10,7 +10,7 @@ from io import StringIO, BytesIO
 from collections import defaultdict
 from pathlib import Path
 
-__version__ = '2.1.6'
+__version__ = '2.1.7'
 GLOBALS_KEY = '_globals'
 
 if os_name == 'nt':
