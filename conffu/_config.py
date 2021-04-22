@@ -1,3 +1,5 @@
+from inspect import signature
+from types import MappingProxyType
 from re import split, sub
 from typing import DefaultDict, Dict, Union, TextIO, List, Any, Generator, Tuple
 from sys import argv
@@ -81,7 +83,7 @@ class DictConfig(dict):
     }
 
     def __init__(self, *args, no_globals: bool = False, no_key_error: bool = False, skip_lists: bool = False,
-                 no_compound_keys: bool = False, skip_iterables: bool = False,):
+                 no_compound_keys: bool = False, skip_iterables: bool = False):
         """
         Constructor method
         """
@@ -92,7 +94,8 @@ class DictConfig(dict):
             self.globals = None
         elif no_globals:
             if isinstance(no_globals, dict):
-                self.globals = no_globals
+                # any dict type will be cast to type of self, with default settings
+                self.globals = self.__class__(no_globals)
             else:
                 self.globals = None
         else:
@@ -100,7 +103,8 @@ class DictConfig(dict):
             if GLOBALS_KEY not in self or not isinstance(super(DictConfig, self).__getitem__(GLOBALS_KEY), dict):
                 self.globals = None
             else:
-                self.globals = super(DictConfig, self).__getitem__(GLOBALS_KEY)
+                # cast _globals dict in self to self type
+                self.globals = self.__class__(super(DictConfig, self).__getitem__(GLOBALS_KEY))
                 del self[GLOBALS_KEY]
         self.filename = None
         self.arguments = None
@@ -108,6 +112,8 @@ class DictConfig(dict):
         self.cfg_filename = None
         self.parameters = None
         self.from_arguments = []
+        # this attribute is only for the benefit of the Config subclass, which exposes it as a property
+        self._shadow_attrs = False
         # replace dicts in Config with equivalent Config
         self._dicts_to_config(self, skip_iterables=skip_lists or skip_iterables)
 
@@ -876,6 +882,14 @@ class Config(DictConfig):
     >>> print(dc['foo'])
     'qux'
     """
+    @property
+    def shadow_attrs(self):
+        return self._shadow_attrs
+
+    @shadow_attrs.setter
+    def shadow_attrs(self, value):
+        self._shadow_attrs = value
+
     def __getattr__(self, attr):
         if attr in self:
             return self[attr]
@@ -883,8 +897,8 @@ class Config(DictConfig):
             raise AttributeError(f'No attribute or key {attr} for {self.__class__}')
 
     def __setattr__(self, attr, value):
-        # don't allow configuration items to shadow object attributes, not using hasattr, as it will call __getattr__
-        if attr in dir(self) or attr not in self:
+        # check if configuration items can shadow object attributes, not using hasattr, as it will call __getattr__
+        if (attr in dir(self) or attr not in self) and (not hasattr(self, '_shadow_attrs') or not self._shadow_attrs):
             super(DictConfig, self).__setattr__(attr, value)
         else:
             self[attr] = value

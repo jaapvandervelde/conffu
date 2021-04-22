@@ -66,19 +66,28 @@ from conffu import Config
 cfg = Config()
 cfg['test'] = 1
 print(cfg.test)  # prints 1
+cfg.test = 2
+print(cfg.test)  # prints 2
 ```
 That is, you're allowed to access configuration keys as if they were attributes on the configuration. However, if you try to access a key that happens to also be an attribute on the object, you get the attribute. This has the advantage that the feature doesn't break how objects work in Python, but the disadvantage that you'll need to access keys that have the same name as object attributes using the dictionary syntax. For example:
 ```python
 from conffu import Config
 
 cfg = Config()
-cfg.test = 1
-cfg['test'] = 2
-cfg.test = 3
-cfg.['test'] = 4
-print(cfg.test, cfg['test'])  # prints 3 4 instead of 4 4
+# create a new config value a
+cfg['a'] = 1
+# change the value of a, accessing it as you would a property / attribute
+cfg.a = 2
+# create a new object attribute b
+cfg.b = 3
+# this does not change the attribute b, because you're directly accessing a new config value b
+cfg.['b'] = 4
+print(cfg.a, cfg.b)  # prints 2 3
+print(cfg['a'], cfg['b'])  # prints 2 4
 ```
-If you don't like this behaviour, use the `DictConfig` class instead of `Config` - they are identical, except that the `DictConfig` does not have this behaviour and you always access keys like `cfg['test']`, or `cfg['key.subkey']`.
+If you don't like this behaviour, consider using the `DictConfig` class instead of `Config` - they are identical, except that the `DictConfig` does not have this behaviour and you must always access keys like `cfg['test']`, or `cfg['key.subkey']`.
+
+If you do like the ability to access configuration values like attributes, you should take care that your code only assigns to existing values (initialise them as 'null' when creating the config from json for example), or that you use the dictionary syntax when assigning values and you only use the attribute syntax for reading values.
 
 ## License
 

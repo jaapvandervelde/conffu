@@ -89,6 +89,22 @@ class TestConfig(unittest.TestCase):
         self.assertEqual('1={{x}}', cfg['escaped'], msg='noglobals, escaped braces should not be unescaped')
         self.assertTrue('_globals' in cfg, msg='noglobals, globals should be visible')
 
+    def test_globals_as_config(self):
+        cfg = Config({'_globals': {'x': {'y': 1}}, 'a': {'b': 1}} )
+        self.assertEqual(1, cfg.globals.x.y, msg='globals function as a config')
+        a = cfg.a
+        self.assertEqual(1, a.globals.x.y, msg='globals function as a config on a copy')
+        self.assertEqual({'y': 1}, a.globals.x, msg='globals compare as a dict')
+
+    def test_shadow_attrs(self):
+        cfg = Config()
+        cfg.shadow_attrs = True
+        cfg['a'] = 1
+        cfg.a = 2
+        cfg.b = 1
+        cfg['b'] = 2
+        self.assertEqual((2, 2, 2, 2), (cfg.a, cfg['a'], cfg.b, cfg['b']), msg='attributes can be shadowed')
+
     def test_key_error(self):
         cfg = DictConfig({'test': 1})
         with self.assertRaises(KeyError, msg='without no_key_error, reading non-existent keys raises an exception'):

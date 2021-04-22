@@ -6,6 +6,12 @@ When next major version is released (3.x), these breaking changes will be applie
  - remove deprecated `skip_lists` from all methods
  - remove deprecated `.from_file()`
  - remove deprecated `no_arguments` from `.load()`
+ - make `Config.shadow_attrs = True` the default 
+
+## [2.1.7] - 2021-04-22
+
+### Added
+  - Attribute `shadow_attrs` can be set on a `Config` to change the behaviour where setting a new value on a configuration would create an object attribute instead. Setting `cfg.shadow_attrs = True` now causes the config to allow setting new values, but it prevents normal creation of new attributes on the object with `cfg.attr = value`. </br><b>Deprecation warning</b>: As this is the preferred behaviour, but breaks backward compatibility, it will only become the default with the next major version. Set the property explicitly, which won't break for future versions.
 
 ## [2.1.6] - 2021-04-20
 
