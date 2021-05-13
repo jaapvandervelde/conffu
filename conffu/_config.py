@@ -1,7 +1,5 @@
-from inspect import signature
-from types import MappingProxyType
 from re import split, sub
-from typing import DefaultDict, Dict, Union, TextIO, List, Any, Generator, Tuple
+from typing import DefaultDict, Dict, Union, TextIO, List, Any, Generator, Tuple, Iterable
 from sys import argv
 from os import getenv, name as os_name, environ as os_environ
 if os_name == 'nt':
@@ -10,7 +8,7 @@ from io import StringIO, BytesIO
 from collections import defaultdict
 from pathlib import Path
 
-__version__ = '2.1.7'
+__version__ = '2.1.8'
 GLOBALS_KEY = '_globals'
 
 if os_name == 'nt':
@@ -204,6 +202,7 @@ class DictConfig(dict):
         if not isinstance(other, dict):
             return NotImplemented
         new = self.__class__(self)
+        new._shadow_attrs = self._shadow_attrs
         new.update(other)
         return new
 
@@ -211,6 +210,7 @@ class DictConfig(dict):
         if not isinstance(other, dict):
             return NotImplemented
         new = self.__class__(other)
+        new._shadow_attrs = self._shadow_attrs
         new.update(self)
         return new
 
@@ -316,6 +316,10 @@ class DictConfig(dict):
                 target[keys[-1]] = value
             except KeyError:
                 self[keys[:-1]] = self.__class__({keys[-1]: value})
+                try:
+                    self[keys[:-1]].shadow_attrs = self._shadow_attrs
+                except AttributeError:
+                    pass
 
     def dict_copy(self, skip_lists: bool = False, with_globals: bool = True, skip_iterables: bool = False) -> dict:
         """
@@ -433,7 +437,7 @@ class DictConfig(dict):
         return request.urlopen(req), Path(urlparse(url).path).name
 
     @classmethod
-    def load(cls, source: Union[TextIO, BytesIO, str] = None, file_type: str = None,
+    def load(cls, source: Union[TextIO, BytesIO, str, Path] = None, file_type: str = None,
              no_arguments: bool = False, require_file: bool = True, url_header: Union[dict, str] = None,
              load_kwargs: dict = None, cli_args: Union[Dict[str, list], list, bool] = None,
              **kwargs) -> 'DictConfig':
@@ -484,9 +488,9 @@ class DictConfig(dict):
                             if 'rh' in args:
                                 url_header = args['rh'][0]
                         source, filename = cls._file_from_url(source, url_header if url_header is not None else {})
-                    except IOError:
-                        # at this point, file is neither a handle, a valid file name or a valid URL
-                        raise FileExistsError(f'Config file {source} not found.')
+                    except (IOError, ValueError):
+                        # at this point, file is neither a handle, a valid file name nor a valid URL
+                        raise FileExistsError(f'Config file "{source}" not found.')
             else:
                 try:
                     filename = source.name
@@ -534,9 +538,9 @@ class DictConfig(dict):
         return cfg
 
     @classmethod
-    def from_file(cls, file: Union[TextIO, BytesIO, str] = None, file_type: str = None, no_arguments: bool = False,
-                  require_file: bool = True, url_kwargs: dict = None, load_kwargs: dict = None,
-                  **kwargs) -> 'DictConfig':
+    def from_file(cls, file: Union[TextIO, BytesIO, str, Path] = None, file_type: str = None,
+                  no_arguments: bool = False, require_file: bool = True, url_kwargs: dict = None,
+                  load_kwargs: dict = None, **kwargs) -> 'DictConfig':
         """
         Deprecated as of 2.1.0, use DictConfig.load()
         """
@@ -610,7 +614,7 @@ class DictConfig(dict):
         return dict(self._recursive_keys_tuples())
 
     @staticmethod
-    def _case_safe(key: str, keys: List[str]) -> str:
+    def _case_safe(key: str, keys: Iterable[str]) -> str:
         """
         helper function used by .update_from_environment()
         :param key: a key to match case for

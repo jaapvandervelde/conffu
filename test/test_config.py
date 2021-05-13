@@ -188,6 +188,10 @@ class TestConfig(unittest.TestCase):
         cfg = cfg | {1: 'b', 2: 'c'}
         self.assertIsInstance(cfg, DictConfig, msg='update with dict should not affect type')
 
+    def test_file_exists_error(self):
+        with self.assertRaises(FileExistsError, msg='non-existent file raises correct exception'):
+            cfg = Config.from_file('nonexistent.json')
+
 
 if __name__ == '__main__':
     unittest.main()

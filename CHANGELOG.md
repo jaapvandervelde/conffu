@@ -8,6 +8,14 @@ When next major version is released (3.x), these breaking changes will be applie
  - remove deprecated `no_arguments` from `.load()`
  - make `Config.shadow_attrs = True` the default 
 
+## [2.1.8] - 2021-05-14
+
+### Fixes
+  - Config would not correctly catch the error thrown by `urlopen()` when trying to open a non-existent file as a URL.
+  - `from_file` and `load` would accept a Path, but did not state this in their signature, causing undue IDE warnings.
+  - removed unused import statements for `inspect` and `typing`.
+  - too narrow parameter type for `recursive_keys()` (`List` to `Iterable`)
+
 ## [2.1.7] - 2021-04-22
 
 ### Added
