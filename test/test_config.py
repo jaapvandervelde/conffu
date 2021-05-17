@@ -192,6 +192,34 @@ class TestConfig(unittest.TestCase):
         with self.assertRaises(FileExistsError, msg='non-existent file raises correct exception'):
             cfg = Config.from_file('nonexistent.json')
 
+    def test_disable_globals(self):
+        cfg = Config({'_globals': {'x': 1}, 'xs': ['{x}']})
+        self.assertEqual('1', cfg.xs[0], 'using globals regularly')
+        cfg.xs.append('test')
+        self.assertEqual(1, len(cfg.xs), 'cannot add to list while using globals')
+        cfg.disable_globals = True
+        cfg.xs.append('test')
+        self.assertEqual(2, len(cfg.xs), 'can add to list while not using globals')
+        self.assertEqual('test', cfg.xs[1], 'correct value added while not using globals')
+        cfg.disable_globals = False
+
+    def test_disable_globals_direct(self):
+        cfg = Config({'_globals': {'x': 1}, 'xs': ['{x}']})
+        with cfg.direct as dcfg:
+            dcfg.xs.append('test')
+            self.assertEqual(2, len(dcfg.xs), 'can add to list while not using globals through direct')
+            self.assertEqual('test', dcfg.xs[1], 'correct value added while not using globals through direct')
+        self.assertFalse(cfg.disable_globals, 'still using globals outside context')
+
+    def test_disable_globals_direct_persist(self):
+        cfg = Config({'_globals': {'x': 1}, 'xs': ['{x}']})
+        cfg.disable_globals = True
+        with cfg.direct as dcfg:
+            dcfg.xs.append('test')
+            self.assertEqual(2, len(dcfg.xs), 'can add to list while not using globals through direct')
+            self.assertEqual('test', dcfg.xs[1], 'correct value added while not using globals through direct')
+        self.assertTrue(cfg.disable_globals, 'still using globals outside context')
+
 
 if __name__ == '__main__':
     unittest.main()

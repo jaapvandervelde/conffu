@@ -8,6 +8,19 @@ When next major version is released (3.x), these breaking changes will be applie
  - remove deprecated `no_arguments` from `.load()`
  - make `Config.shadow_attrs = True` the default 
 
+## [2.1.9] - 2021-05-17
+
+### Added
+  - For easier access to the `.disable_globals` attribute and to avoid turning it back on, a context manager is provided through DictConfig.direct, for example:
+```python
+cfg = Config({'_globals': {'x': 1}, 'xs': []})
+with cfg.direct:
+    xs.append(1)  # this works, even though it wouldn't due to globals otherwise (see Fixes)
+```
+
+### Fixes
+  - When accessing a list or tuple in a Config, a copy is returned if the Config has globals defines, to ensure substitutions work, but as a result calling methods on the list or tuple would no longer modify the original. To be able to modify a Config element through its methods and properties, a `disable_globals` property has been added which is `False` by default, but while `True`, allows direct unmodified access. 
+
 ## [2.1.8] - 2021-05-14
 
 ### Fixes

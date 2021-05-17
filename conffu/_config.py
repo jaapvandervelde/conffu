@@ -8,7 +8,7 @@ from io import StringIO, BytesIO
 from collections import defaultdict
 from pathlib import Path
 
-__version__ = '2.1.8'
+__version__ = '2.1.9'
 GLOBALS_KEY = '_globals'
 
 if os_name == 'nt':
@@ -46,6 +46,22 @@ def argv_to_dict(args: List[str], aliases: Dict[str, str] = None) -> DefaultDict
         else:
             result[key].append(a)
     return result
+
+
+class _NoGlobalsProxy:
+    """
+    This class only serves to provide a context manager for a DictConfig, to allow access to it with 'disable_globals'
+    """
+    def __init__(self, cfg: 'DictConfig'):
+        self._cfg = cfg
+        self._saved_value = False
+
+    def __enter__(self):
+        self._saved_value, self._cfg.disable_globals = self._cfg.disable_globals, True
+        return self._cfg
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self._cfg.disable_globals = self._saved_value
 
 
 class DictConfig(dict):
@@ -104,6 +120,7 @@ class DictConfig(dict):
                 # cast _globals dict in self to self type
                 self.globals = self.__class__(super(DictConfig, self).__getitem__(GLOBALS_KEY))
                 del self[GLOBALS_KEY]
+        self.disable_globals = False
         self.filename = None
         self.arguments = None
         self.env_var_prefix = None
@@ -114,6 +131,10 @@ class DictConfig(dict):
         self._shadow_attrs = False
         # replace dicts in Config with equivalent Config
         self._dicts_to_config(self, skip_iterables=skip_lists or skip_iterables)
+
+    @property
+    def direct(self):
+        return _NoGlobalsProxy(self)
 
     def _dict_cast(self, a_dict: dict, from_type: type, to_type: type, skip_iterables: bool = False) -> dict:
         """
@@ -235,7 +256,7 @@ class DictConfig(dict):
             return '{' + key + '}'
 
     def _subst_globals(self, value: Any) -> Any:
-        if self.globals is None:
+        if self.globals is None or self.disable_globals:
             return value
         else:
             if isinstance(value, str):
