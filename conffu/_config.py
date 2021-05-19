@@ -567,7 +567,7 @@ class DictConfig(dict):
         """
         return cls.load(file, file_type, no_arguments, require_file, url_kwargs, load_kwargs, **kwargs)
 
-    def save(self, file: Union[TextIO, BytesIO, str] = None, file_type: str = None, include_globals: bool = True,
+    def save(self, file: Union[TextIO, BytesIO, str, Path] = None, file_type: str = None, include_globals: bool = True,
              include_from_arguments: bool = True, **kwargs):
         """
         Save the config to a file of the specified type

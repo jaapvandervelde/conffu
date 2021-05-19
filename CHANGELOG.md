@@ -8,6 +8,11 @@ When next major version is released (3.x), these breaking changes will be applie
  - remove deprecated `no_arguments` from `.load()`
  - make `Config.shadow_attrs = True` the default 
 
+## [2.1.10] - 2021-05-19
+
+### Fixes
+  - Path allowed as type for `.save()` and `.load()` methods.
+
 ## [2.1.9] - 2021-05-17
 
 ### Added
