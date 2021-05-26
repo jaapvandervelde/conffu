@@ -118,3 +118,7 @@ class TestConfig(unittest.TestCase):
         args = argv_to_dict(['script.py', '-cfg', str(p)])
         cfg = Config.load(cli_args=args)
         self.assertEqual(cfg, self._cfg)
+
+    def test_import(self):
+        p = Path(self.tmpdir.name) / 'config_copy.json'
+        self._cfg.save(p)

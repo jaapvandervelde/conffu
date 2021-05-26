@@ -1,5 +1,5 @@
 from re import split, sub
-from typing import DefaultDict, Dict, Union, TextIO, List, Any, Generator, Tuple, Iterable
+from typing import DefaultDict, Dict, Union, TextIO, List, Any, Generator, Tuple, Iterable, Mapping
 from sys import argv
 from os import getenv, name as os_name, environ as os_environ
 if os_name == 'nt':
@@ -312,6 +312,29 @@ class DictConfig(dict):
                     raise KeyError(f'Multi-part key, but `{keys[0]}` is not a dictionary or Config.')
             return self._subst_globals(super(DictConfig, self).__getitem__(keys[0]))
 
+    def get(self, key: str, default: Any = None) -> Any:
+        """
+        Override of get() that takes globals and compound keys into account
+        :param key: dict key of item to get
+        :param default: default to return if key is not found
+        :return: self[key]
+        """
+        return default if (result := self.__getitem__(key)) is None else result
+
+    def pop(self, key: str, default: Any = None) -> Any:
+        """
+        Override of pop() that takes globals and compound keys into account
+        :param key: dict key of item to pop
+        :param default: default to return if key is not found
+        :return: self[key] before it was removed
+        """
+        result = self.__getitem__(key)
+        if result is None:
+            return default
+        else:
+            del self[key]
+            return result
+
     def __setitem__(self, key: str, value: Any):
         """
         Set the item with (compound) key in self
@@ -342,6 +365,23 @@ class DictConfig(dict):
                 except AttributeError:
                     pass
 
+    def __delitem__(self, key: str):
+        try:
+            if self.no_compound_keys:
+                return super(DictConfig, self).__delitem__(key)
+        except AttributeError:
+            pass
+
+        keys = self._split_key(key)
+
+        if len(keys) == 0:
+            raise KeyError(f'Invalid key value {key}.')
+        elif len(keys) == 1:
+            super(DictConfig, self).__delitem__(keys[0])
+        else:
+            target = self[keys[:-1]]
+            del target[keys[-1]]
+
     def dict_copy(self, skip_lists: bool = False, with_globals: bool = True, skip_iterables: bool = False) -> dict:
         """
         Copy the DictConfig as a dict, recursively (turning nested DictConfig into dict as well)
@@ -364,6 +404,34 @@ class DictConfig(dict):
         :return: a copy of self, of the same type
         """
         return self.__class__(self.dict_copy())
+
+    def update(self, other: Mapping = None, **kwargs) -> 'DictConfig':
+        if other is not None:
+            if hasattr(other, 'globals'):
+                if self.globals is not None:
+                    self.globals.update(other.globals)
+                else:
+                    if other.globals is not None:
+                        self.globals = other.globals.copy()
+            for k, v in other.items():
+                if k in self and isinstance(self[k], DictConfig):
+                    self[k].update(v)
+                else:
+                    self[k] = v
+        if kwargs:
+            self.update(kwargs)
+        return self
+
+    def resolve_imports(self, prefix='import@'):
+        if not prefix:
+            raise SyntaxError('Empty prefix for resolve_imports not allowed.')
+        for k, v in self.items():
+            if isinstance(v, str) and v.startswith(prefix):
+                # not referencing v, but self[k] to trigger global replacements
+                self[k] = self.__class__.load(self[k][len(prefix):], no_arguments=True)
+            elif isinstance(v, DictConfig):
+                v.resolve_imports(prefix)
+        return self
 
     @classmethod
     def _xml2cfg(cls, root, **kwargs):
@@ -567,7 +635,7 @@ class DictConfig(dict):
         """
         return cls.load(file, file_type, no_arguments, require_file, url_kwargs, load_kwargs, **kwargs)
 
-    def save(self, file: Union[TextIO, BytesIO, str] = None, file_type: str = None, include_globals: bool = True,
+    def save(self, file: Union[TextIO, BytesIO, str, Path] = None, file_type: str = None, include_globals: bool = True,
              include_from_arguments: bool = True, **kwargs):
         """
         Save the config to a file of the specified type
@@ -927,3 +995,11 @@ class Config(DictConfig):
             super(DictConfig, self).__setattr__(attr, value)
         else:
             self[attr] = value
+
+    def __delattr__(self, attr):
+        if (attr in dir(self) or attr not in self) and (not hasattr(self, '_shadow_attrs') or not self._shadow_attrs):
+            super(DictConfig, self).__delattr__(attr)
+        elif attr in self:
+            del self[attr]
+        else:
+            raise AttributeError(f'No attribute or key {attr} for {self.__class__}')

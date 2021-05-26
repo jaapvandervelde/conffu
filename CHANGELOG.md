@@ -8,6 +8,19 @@ When next major version is released (3.x), these breaking changes will be applie
  - remove deprecated `no_arguments` from `.load()`
  - make `Config.shadow_attrs = True` the default 
 
+
+## [2.1.11] - 2021-05-26
+
+### Added
+  - support for `.get()`, `.pop()` (previously, these would ignore globals and compound keys)
+  - support for `del` (previously this wouldn't work when trying to delete an attribute, or with compound keys)
+  - support for `.update()` (propagating globals correctly, overriding globals with globals from the update config)
+
+## [2.1.10] - 2021-05-19
+
+### Fixes
+  - Path allowed as type for `.save()` and `.load()` methods.
+
 ## [2.1.9] - 2021-05-17
 
 ### Added

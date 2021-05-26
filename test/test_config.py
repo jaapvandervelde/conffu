@@ -171,7 +171,7 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(1, cfg.test, 'attributes are preferred over keys')
         self.assertEqual(2, cfg['test'], 'keys with names like attributes still work')
         cfg['test_2'] = 3
-        self.assertEqual(3, cfg.test_2, 'keys can be accessed as attributes if they do are not shadowed')
+        self.assertEqual(3, cfg.test_2, 'keys can be accessed as attributes if they are not shadowed')
         del cfg.test
         self.assertEqual(2, cfg.test, 'if no longer shadowed by an attribute, keys can be access as attribute')
 
@@ -219,6 +219,78 @@ class TestConfig(unittest.TestCase):
             self.assertEqual(2, len(dcfg.xs), 'can add to list while not using globals through direct')
             self.assertEqual('test', dcfg.xs[1], 'correct value added while not using globals through direct')
         self.assertTrue(cfg.disable_globals, 'still using globals outside context')
+
+    def test_get(self):
+        cfg = Config({'_globals':{'g': 2}, 'a': 1, 'b': '{g}', 'c': {'d': 3}})
+        self.assertEqual(1, cfg.get('a'), 'get works as expected')
+        self.assertEqual('2', cfg.get('b'), 'get also resolves globals')
+        self.assertEqual(3, cfg.get('c.d'), 'get also resolves compound keys')
+
+    def test_pop(self):
+        cfg = Config({'_globals':{'g': 2}, 'a': 1, 'b': '{g}', 'c': {'d': 3}})
+        self.assertEqual(1, cfg.pop('a'), 'pop works as expected')
+        with self.assertRaises(KeyError, msg='after pop, key no longer present'):
+            cfg['a'] = cfg['a']
+        cfg = Config({'_globals':{'g': 2}, 'a': 1, 'b': '{g}', 'c': {'d': 3}})
+        self.assertEqual('2', cfg.pop('b'), 'pop also resolves globals')
+        with self.assertRaises(KeyError, msg='after pop, key no longer present'):
+            cfg['b'] = cfg['b']
+        cfg = Config({'_globals':{'g': 2}, 'a': 1, 'b': '{g}', 'c': {'d': 3}})
+        self.assertEqual(3, cfg.pop('c.d'), 'pop also resolves compound keys')
+        self.assertEqual({}, cfg.c, 'pop also resolves compound keys')
+        with self.assertRaises(KeyError, msg='after pop, key no longer present'):
+            cfg['c.d'] = cfg['c.d']
+
+    def test_del(self):
+        cfg = Config({'_globals':{'g': 2}, 'a': 1, 'b': 2, 'c': {'d': 3}, 'e': {'f': 4}})
+        cfg.g = 2
+        cfg['g'] = 2
+        del cfg.a
+        del cfg['b']
+        del cfg.c.d
+        del cfg['e.f']
+        del cfg.g
+        self.assertTrue('a' not in cfg, 'key removed as attribute')
+        self.assertTrue('b' not in cfg, 'key removed as index')
+        self.assertTrue('c' in cfg, 'parent remains for removed compound key')
+        self.assertTrue('d' not in cfg.c, 'sub-key removed for compound key')
+        self.assertTrue('e' in cfg, 'parent remains for removed compound key')
+        self.assertTrue('f' not in cfg.e, 'sub-key removed for compound key')
+        self.assertTrue('g' in cfg, 'key not removed, when attr existed (and removed)')
+        del cfg.g
+        self.assertTrue('g' not in cfg, 'key removed after attr no longer existed')
+
+        cfg = Config()
+        cfg.shadow_attrs = True
+        cfg.a = 2
+        cfg['a'] = 1
+        del cfg.a
+        self.assertTrue('a' not in cfg, 'key removed even if attr exists, when attrs are shadowed')
+
+    def test_update_basic(self):
+        cfg = Config({'a': 1, 'b': 2, 'c': 3})
+        cfg.update({'b': 3, 'd': 4}, c=5, e=6)
+        self.assertEqual(1, cfg.a, 'untouched keys not affected by update')
+        self.assertEqual(3, cfg.b, 'duplicated keys updated by update')
+        self.assertEqual(5, cfg.c, 'duplicated kwargs keys updated by update')
+        self.assertEqual(4, cfg.d, 'new keys added by update')
+        self.assertEqual(6, cfg.e, 'new kwargs keys added by update')
+
+        cfg = Config({'a': 1})
+        cfg.update()
+        self.assertEqual(cfg, Config({'a': 1}), 'no change from update with no arguments')
+        cfg.update(a=2, b=3)
+        self.assertEqual(2, cfg.a, 'kwargs keys correctly updated by update without mapping')
+        self.assertEqual(3, cfg.b, 'kwargs keys correctly added by update without mapping')
+
+    def test_update_globals(self):
+        cfg = Config({'_globals':{'g1': 1, 'g2': 2}, 'a': '{g1}', 'b': '{g2}', 'c': '{g3}'})
+        cfg_update = Config({'_globals': {'g2': 3, 'g3': 4}, 'd': '{g1}{g2}{g3}'})
+        cfg.update(cfg_update)
+        self.assertEqual('1', cfg.a, 'untouched global for update with globals')
+        self.assertEqual('3', cfg.b, 'updated global for update with globals')
+        self.assertEqual('4', cfg.c, 'added global for update with globals')
+        self.assertEqual('134', cfg.d, 'correct global substitutions for newly added keys after update with globals')
 
 
 if __name__ == '__main__':
