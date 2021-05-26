@@ -8,7 +8,6 @@ When next major version is released (3.x), these breaking changes will be applie
  - remove deprecated `no_arguments` from `.load()`
  - make `Config.shadow_attrs = True` the default 
 
-
 ## [2.1.11] - 2021-05-26
 
 ### Added
