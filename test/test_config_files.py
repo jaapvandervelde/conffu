@@ -120,5 +120,12 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(cfg, self._cfg)
 
     def test_import(self):
-        p = Path(self.tmpdir.name) / 'config_copy.json'
-        self._cfg.save(p)
+        cfgi = Config({'_globals': {'g': 3, 'i': 6}, 'd': 2, 'e': '{g}{h}'})
+        pi = Path(self.tmpdir.name) / 'config_import.json'
+        cfgi.save(pi)
+        cfg = Config({'_globals': {'h': 4, 'i': 5}, 'a': 1, 'b': f'import@{pi}', 'c': f'x@{pi}',
+                      'f': '{h}', 'g': '{g}'})
+        cfg.resolve_imports()
+        self.assertEqual(1, cfg.a, 'import does not affect other values')
+        self.assertEqual('4', cfg.f, 'import does not affect other globals')
+        self.assertEqual('3', cfg.g, 'import adds new globals, affecting existing keys as well')
