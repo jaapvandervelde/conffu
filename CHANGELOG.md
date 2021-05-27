@@ -8,6 +8,11 @@ When next major version is released (3.x), these breaking changes will be applie
  - remove deprecated `no_arguments` from `.load()`
  - make `Config.shadow_attrs = True` the default 
 
+## [2.1.13] - 2021-05-27 (3)
+
+### Fixes
+  - A typo in the `.startup()` default import prefix.
+
 ## [2.1.12] - 2021-05-27 (2)
 
 ### Added

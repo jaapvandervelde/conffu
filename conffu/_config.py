@@ -8,7 +8,7 @@ from io import StringIO, BytesIO
 from collections import defaultdict
 from pathlib import Path
 
-__version__ = '2.1.12'
+__version__ = '2.1.13'
 GLOBALS_KEY = '_globals'
 
 if os_name == 'nt':
@@ -686,7 +686,7 @@ class DictConfig(dict):
             prefix = kwargs['prefix']
             del kwargs['prefix']
         else:
-            prefix = '@import'
+            prefix = 'import@'
         if isinstance(defaults, str):
             return cls.load(defaults, no_arguments=True).update(
                 cls.load(require_file=False, **kwargs)
