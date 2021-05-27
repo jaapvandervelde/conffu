@@ -8,12 +8,22 @@ When next major version is released (3.x), these breaking changes will be applie
  - remove deprecated `no_arguments` from `.load()`
  - make `Config.shadow_attrs = True` the default 
 
-## [2.1.11] - 2021-05-26
+## [2.1.11] - 2021-05-27
+
+### Fixes
+  - when assigning a `dict` or config to a `DictConfig` key, it now correctly gets its globals updated, so that there is only one set of globals across the entire resulting config.
 
 ### Added
   - support for `.get()`, `.pop()` (previously, these would ignore globals and compound keys)
   - support for `del` (previously this wouldn't work when trying to delete an attribute, or with compound keys)
   - support for `.update()` (propagating globals correctly, overriding globals with globals from the update config)
+  - `.resolve_imports()` method with a customisable prefix (default `import@`), which allows importing secondary configurations as values, e.g.:
+```json
+{
+  "a": 1,
+  "b": "import@/some/path/config.json"
+}
+```
 
 ## [2.1.10] - 2021-05-19
 

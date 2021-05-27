@@ -70,7 +70,7 @@ class DictConfig(dict):
     line arguments and allows for access using compound keys ('key.key') and global variable substitution
 
     :param args: arguments to be passed to the dict constructor
-    :param no_globals bool: if not set, the value of the GLOBALS_KEY item will be take to be a dict of globals
+    :param no_globals bool: if not set, the value of the GLOBALS_KEY item will be taken to be a dict of globals
         replacement values and this dict will be hidden from the DictConfig content
     :param no_key_error bool: if set, the DictConfig will not throw exceptions for non-existent keys (but return None)
     :param skip_lists bool: (deprecated 2.1.2, use skip_iterables) if True, casting should not recurse into lists
@@ -96,8 +96,8 @@ class DictConfig(dict):
         'request_header': 'rh', 'header': 'rh'
     }
 
-    def __init__(self, *args, no_globals: bool = False, no_key_error: bool = False, skip_lists: bool = False,
-                 no_compound_keys: bool = False, skip_iterables: bool = False):
+    def __init__(self, *args, no_globals: Union[bool, dict] = False, no_key_error: bool = False,
+                 skip_lists: bool = False, no_compound_keys: bool = False, skip_iterables: bool = False):
         """
         Constructor method
         """
@@ -108,8 +108,12 @@ class DictConfig(dict):
             self.globals = None
         elif no_globals:
             if isinstance(no_globals, dict):
-                # any dict type will be cast to type of self, with default settings
-                self.globals = self.__class__(no_globals)
+                if isinstance(no_globals, DictConfig):
+                    # copy the reference, if no_globals is already a Config
+                    self.globals = no_globals
+                else:
+                    # any other dict type will be cast (and thus copied) to type of self, with default settings
+                    self.globals = self.__class__(no_globals)
             else:
                 self.globals = None
         else:
@@ -350,6 +354,10 @@ class DictConfig(dict):
 
         keys = self._split_key(key)
 
+        if isinstance(value, dict):
+            if not isinstance(value, DictConfig):
+                value = self.__class__(value, no_globals=self.globals)
+
         if len(keys) == 0:
             raise KeyError(f'Invalid key value {key}.')
         elif len(keys) == 1:
@@ -359,11 +367,24 @@ class DictConfig(dict):
                 target = self[keys[:-1]]
                 target[keys[-1]] = value
             except KeyError:
-                self[keys[:-1]] = self.__class__({keys[-1]: value})
+                self[keys[:-1]] = self.__class__({keys[-1]: value}, no_globals=self.globals)
                 try:
                     self[keys[:-1]].shadow_attrs = self._shadow_attrs
                 except AttributeError:
                     pass
+        # once assignment was successful, update globals
+        if isinstance(value, DictConfig):
+            # when being loaded through pickle, it may not
+            if hasattr(self, 'globals'):
+                if hasattr(self, 'globals') and isinstance(value.globals, dict):
+                    new_globals = value.globals.copy()
+                    new_globals.update(self.globals)
+                    # update the main globals to match
+                    self.globals.update(new_globals)
+                    # the assigned globals to the main globals
+                    value.globals = self.globals
+                else:
+                    value.globals = self.globals
 
     def __delitem__(self, key: str):
         try:

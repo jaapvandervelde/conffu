@@ -129,3 +129,4 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(1, cfg.a, 'import does not affect other values')
         self.assertEqual('4', cfg.f, 'import does not affect other globals')
         self.assertEqual('3', cfg.g, 'import adds new globals, affecting existing keys as well')
+        self.assertEqual('34', cfg.b.e, 'globals merged and all available to imported section')

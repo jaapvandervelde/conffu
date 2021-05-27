@@ -98,7 +98,7 @@ class TestConfig(unittest.TestCase):
 
     def test_globals_assigned_dict(self):
         cfg_a = Config({'_globals': {'x': 1}, 'a': '{x}'})
-        cfg_a.b = {'c': '{x}'}
+        cfg_a['b'] = {'c': '{x}'}
         self.assertIsInstance(cfg_a.b, Config, 'type of parent is propagated to newly assigned dict')
         self.assertEqual('1', cfg_a.b.c, msg='newly assigned dicts inherit globals as config')
 
@@ -110,8 +110,14 @@ class TestConfig(unittest.TestCase):
     def test_globals_transfer(self):
         cfg_a = Config({'_globals': {'x': 1}, 'a': '{x}'})
         cfg_b = Config({'_globals': {'x': 2}, 'b': '{x}'})
-        cfg_a.c = cfg_b
-        self.assertEqual('a', cfg_a.c.b, msg='globals are updated to new parent globals')
+        cfg_a['c'] = cfg_b
+        self.assertEqual('1', cfg_a.c.b, msg='globals are updated to new parent globals')
+
+    def test_globals_parent_transfer(self):
+        cfg_a = Config({'_globals': {'x': 1}, 'a': '{x}', 'd': '{y}'})
+        cfg_b = Config({'_globals': {'x': 2, 'y': 3}, 'b': '{x}'})
+        cfg_a['c'] = cfg_b
+        self.assertEqual('3', cfg_a.d, msg='parent globals are updated with new values from assigned config')
 
     def test_shadow_attrs(self):
         cfg = Config()
