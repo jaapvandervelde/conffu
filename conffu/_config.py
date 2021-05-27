@@ -1,5 +1,5 @@
 from re import split, sub
-from typing import DefaultDict, Dict, Union, TextIO, List, Any, Generator, Tuple, Iterable, Mapping
+from typing import DefaultDict, Dict, Union, TextIO, List, Any, Generator, Tuple, Iterable, Mapping, Hashable
 from sys import argv
 from os import getenv, name as os_name, environ as os_environ
 if os_name == 'nt':
@@ -8,7 +8,7 @@ from io import StringIO, BytesIO
 from collections import defaultdict
 from pathlib import Path
 
-__version__ = '2.1.11'
+__version__ = '2.1.12'
 GLOBALS_KEY = '_globals'
 
 if os_name == 'nt':
@@ -119,6 +119,8 @@ class DictConfig(dict):
         else:
             # globals as part of a config only work if they are in the config and are actually a dict (or a Config)
             if GLOBALS_KEY not in self or not isinstance(super(DictConfig, self).__getitem__(GLOBALS_KEY), dict):
+                if GLOBALS_KEY in self:
+                    del self[GLOBALS_KEY]
                 self.globals = None
             else:
                 # cast _globals dict in self to self type
@@ -192,7 +194,7 @@ class DictConfig(dict):
         return self._dict_cast(d, self.__class__, dict, skip_iterables)
 
     @staticmethod
-    def _split_key(key: Union[str, list]) -> list:
+    def _split_key(key: Union[Hashable, list]) -> list:
         """
         Splits a compound configuration key into its parts and returns a list of a all parts
         :param key: a compound key (with '.' as a separator)
@@ -206,7 +208,7 @@ class DictConfig(dict):
         else:
             return [key]
 
-    def __contains__(self, key: str) -> bool:
+    def __contains__(self, key: Hashable) -> bool:
         """
         returns whether the compound key ('part', 'part.part', etc.) is nested within self
         :param key: a compound key, with parts separated by periods
@@ -223,7 +225,12 @@ class DictConfig(dict):
             return False
         return (len(keys) == 1) or (keys[1:] in self[keys[0]])
 
-    def __or__(self, other):
+    def __or__(self, other: dict) -> 'DictConfig':
+        """
+        Enables self | other operation
+        :param other: another dict or config
+        :return: a copy of self updated with other
+        """
         if not isinstance(other, dict):
             return NotImplemented
         new = self.__class__(self)
@@ -231,7 +238,12 @@ class DictConfig(dict):
         new.update(other)
         return new
 
-    def __ror__(self, other):
+    def __ror__(self, other: dict) -> 'DictConfig':
+        """
+        Enables other | self operation
+        :param other: another dict or config
+        :return: a copy of other updated with self
+        """
         if not isinstance(other, dict):
             return NotImplemented
         new = self.__class__(other)
@@ -240,10 +252,15 @@ class DictConfig(dict):
         return new
 
     def __ior__(self, other):
+        """
+        Enables self |= other operation
+        :param other: another dict or config
+        :return: self updated with other
+        """
         self.__class__.update(self, other)
         return self
 
-    def _get_direct(self, key: str) -> Any:
+    def _get_direct(self, key: Hashable) -> Any:
         """
         Retrieve the item with (simple only) key from self and without performing global substitutions
         :param key: a simple key, with no parts separated by periods
@@ -256,8 +273,8 @@ class DictConfig(dict):
         """
         Helper class for _subst_globals(), re-wrapping missing keys in {}
         """
-        def __missing__(self, key: Any) -> str:
-            return '{' + key + '}'
+        def __missing__(self, key: Hashable) -> str:
+            return f'{{{key}}}'
 
     def _subst_globals(self, value: Any) -> Any:
         if self.globals is None or self.disable_globals:
@@ -288,7 +305,7 @@ class DictConfig(dict):
         """
         return self._subst_globals(self)
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: Hashable) -> Any:
         """
         Retrieve the item with (compound) key from self
         :param key: a compound key, with parts separated by periods
@@ -316,7 +333,7 @@ class DictConfig(dict):
                     raise KeyError(f'Multi-part key, but `{keys[0]}` is not a dictionary or Config.')
             return self._subst_globals(super(DictConfig, self).__getitem__(keys[0]))
 
-    def get(self, key: str, default: Any = None) -> Any:
+    def get(self, key: Hashable, default: Any = None) -> Any:
         """
         Override of get() that takes globals and compound keys into account
         :param key: dict key of item to get
@@ -325,7 +342,7 @@ class DictConfig(dict):
         """
         return default if (result := self.__getitem__(key)) is None else result
 
-    def pop(self, key: str, default: Any = None) -> Any:
+    def pop(self, key: Hashable, default: Any = None) -> Any:
         """
         Override of pop() that takes globals and compound keys into account
         :param key: dict key of item to pop
@@ -339,7 +356,7 @@ class DictConfig(dict):
             del self[key]
             return result
 
-    def __setitem__(self, key: str, value: Any):
+    def __setitem__(self, key: Hashable, value: Any):
         """
         Set the item with (compound) key in self
         :param key: a compound key, with parts separated by periods
@@ -380,13 +397,16 @@ class DictConfig(dict):
                     new_globals = value.globals.copy()
                     new_globals.update(self.globals)
                     # update the main globals to match
-                    self.globals.update(new_globals)
+                    if self.globals is not None:
+                        self.globals.update(new_globals)
+                    else:
+                        self.globals = new_globals
                     # the assigned globals to the main globals
                     value.globals = self.globals
                 else:
                     value.globals = self.globals
 
-    def __delitem__(self, key: str):
+    def __delitem__(self, key: Hashable):
         try:
             if self.no_compound_keys:
                 return super(DictConfig, self).__delitem__(key)
@@ -443,7 +463,13 @@ class DictConfig(dict):
             self.update(kwargs)
         return self
 
-    def resolve_imports(self, prefix='import@'):
+    def resolve_imports(self, prefix: str = 'import@') -> 'DictConfig':
+        """
+        Replace the string values that start with a specific prefix with the contents of the file indicated by the
+        rest of that string value.
+        :param prefix: prefix of string values to replace, everything after the prefix should be a valid location
+        :return: self
+        """
         if not prefix:
             raise SyntaxError('Empty prefix for resolve_imports not allowed.')
         for k, v in self.items():
@@ -648,6 +674,31 @@ class DictConfig(dict):
         return cfg
 
     @classmethod
+    def startup(cls, defaults: Union[str, dict, None] = None, **kwargs):
+        """
+        Combines all common modes of passing configuration in a one-stop command, passing parameters to the relevant
+        methods being called.
+        :param defaults: either a string to a file or URL for default, or a dict defining defaults, or None
+        :param kwargs: parameters to pass to the main load method, the result of which will override defaults
+        :return: a completely resolved configuration, with defaults, file, environment, and arguments applied in order
+        """
+        if 'prefix' in kwargs:
+            prefix = kwargs['prefix']
+            del kwargs['prefix']
+        else:
+            prefix = '@import'
+        if isinstance(defaults, str):
+            return cls.load(defaults, no_arguments=True).update(
+                cls.load(require_file=False, **kwargs)
+            ).full_update().resolve_imports(prefix=prefix)
+        elif defaults is None:
+            return cls.load(require_file=False, **kwargs).full_update().resolve_imports(prefix=prefix)
+        else:
+            return cls(defaults).update(
+                cls.load(require_file=False, **kwargs)
+            ).full_update().resolve_imports(prefix=prefix)
+
+    @classmethod
     def from_file(cls, file: Union[TextIO, BytesIO, str, Path] = None, file_type: str = None,
                   no_arguments: bool = False, require_file: bool = True, url_kwargs: dict = None,
                   load_kwargs: dict = None, **kwargs) -> 'DictConfig':
@@ -724,15 +775,15 @@ class DictConfig(dict):
         return dict(self._recursive_keys_tuples())
 
     @staticmethod
-    def _case_safe(key: str, keys: Iterable[str]) -> str:
+    def _case_safe(key: Hashable, keys: Iterable[str]) -> str:
         """
         helper function used by .update_from_environment()
         :param key: a key to match case for
         :param keys: keys to match key to and return instead
         :return: either key, or a case-insensitive matching key from keys
         """
-        # only on Windows, replace the key with a matching key ignoring case
-        if os_name == 'nt':
+        # only on Windows, replace a string key with a matching key ignoring case
+        if os_name == 'nt' and isinstance(key, str):
             for k in keys:
                 if k.lower() == key.lower():
                     return k

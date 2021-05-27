@@ -8,6 +8,30 @@ When next major version is released (3.x), these breaking changes will be applie
  - remove deprecated `no_arguments` from `.load()`
  - make `Config.shadow_attrs = True` the default 
 
+## [2.1.12] - 2021-05-27 (2)
+
+### Added
+  - `.startup()` method which passes all its `**kwargs` onto a `.load`, but loads a default config first and then applies a full update and imports. e.g.:
+```python
+from conffu import Config
+
+cfg = Config.load('defaults.json', no_arguments=True).update(
+    Config.load(require_file=False)
+).full_update().resolve_imports()
+```
+can now be written as:
+
+```python
+from conffu import Config
+
+cfg = Config.startup(defaults='defaults.json')
+```
+
+### Fixes
+  - Config keys can be now Hashable types, as with a `dict`, although `str` is still assumed in most cases and conversion to `str` is automatic when saving as .json. The fix was applied to ensure interface compatibility with dict, to avoid undue warnings.
+  - Setting a value of a DictConfig key to another DictConfig now correctly updates the globals of the parent if it had no globals previously.
+  - A roundtrip to file for a config with no globals, would previously result in a stray `_globals` key in the configuration.
+
 ## [2.1.11] - 2021-05-27
 
 ### Fixes
@@ -35,9 +59,11 @@ When next major version is released (3.x), these breaking changes will be applie
 ### Added
   - For easier access to the `.disable_globals` attribute and to avoid turning it back on, a context manager is provided through DictConfig.direct, for example:
 ```python
+from conffu import Config
+
 cfg = Config({'_globals': {'x': 1}, 'xs': []})
 with cfg.direct:
-    xs.append(1)  # this works, even though it wouldn't due to globals otherwise (see Fixes)
+    cfg.xs.append(1)  # this works, even though it wouldn't due to globals otherwise (see Fixes)
 ```
 
 ### Fixes

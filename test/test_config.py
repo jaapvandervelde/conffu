@@ -211,6 +211,19 @@ class TestConfig(unittest.TestCase):
         cfg = cfg | {1: 'b', 2: 'c'}
         self.assertIsInstance(cfg, DictConfig, msg='update with dict should not affect type')
 
+    def test_update_reverse(self):
+        cfg = Config({1: 'a'})
+        cfg = Config({1: 'b', 2: 'c'}) | cfg
+        self.assertEqual(('a', 'c'), (cfg[1], cfg[2]), 'updated values are correct')
+        self.assertIsInstance(cfg, Config, msg='update should not affect type')
+
+        cfg = DictConfig({1: 'a'})
+        cfg = Config({1: 'b', 2: 'c'}) | cfg
+        self.assertIsInstance(cfg, DictConfig, msg='update with different Config type should not affect type')
+
+        cfg = {1: 'b', 2: 'c'} | cfg
+        self.assertIsInstance(cfg, DictConfig, msg='update with dict should not affect type')
+
     def test_file_exists_error(self):
         with self.assertRaises(FileExistsError, msg='non-existent file raises correct exception'):
             cfg = Config.from_file('nonexistent.json')
@@ -233,6 +246,12 @@ class TestConfig(unittest.TestCase):
             self.assertEqual(2, len(dcfg.xs), 'can add to list while not using globals through direct')
             self.assertEqual('test', dcfg.xs[1], 'correct value added while not using globals through direct')
         self.assertFalse(cfg.disable_globals, 'still using globals outside context')
+
+        cfg = Config({'_globals': {'x': 1}, 'xs': ['{x}']})
+        with cfg.direct:
+            cfg.xs.append('test')
+            self.assertEqual(2, len(cfg.xs), 'can add to list while not using globals through direct (no as)')
+            self.assertEqual('test', cfg.xs[1], 'correct value added while not using globals through direct (no as)')
 
     def test_disable_globals_direct_persist(self):
         cfg = Config({'_globals': {'x': 1}, 'xs': ['{x}']})

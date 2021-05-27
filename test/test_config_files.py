@@ -71,6 +71,11 @@ class TestConfig(unittest.TestCase):
         self._check_config(cfg)
         self.assertEqual(cfg, self._cfg, 'JSON loaded from file identical')
 
+        cfg_simple = Config({'a': 1})
+        cfg_simple.save(Path(self.tmpdir.name) / 'config_simple.json')
+        cfg = Config.load(Path(self.tmpdir.name) / 'config_simple.json')
+        self.assertEqual(cfg, cfg_simple, 'simple JSON loaded from file identical')
+
     def test_xml_roundtrip(self):
         self._cfg.save(Path(self.tmpdir.name) / 'config_copy.xml')
         cfg = Config.load(Path(self.tmpdir.name) / 'config_copy.xml')
@@ -130,3 +135,19 @@ class TestConfig(unittest.TestCase):
         self.assertEqual('4', cfg.f, 'import does not affect other globals')
         self.assertEqual('3', cfg.g, 'import adds new globals, affecting existing keys as well')
         self.assertEqual('34', cfg.b.e, 'globals merged and all available to imported section')
+
+    def test_import_url(self):
+        cfg = Config({'_globals': {'x': 2}, 'c': 3})
+        cfg.save(Path(self.tmpdir.name) / 'config_copy.json')
+        cfg = Config({'a': 1, 'b': 'import@http://localhost:8000/config_copy.json?foo=bar', 'd': '{x}'})
+        p = None
+        try:
+            p = Popen(['python', '-m', 'http.server'], cwd=self.tmpdir.name, stderr=DEVNULL, stdout=DEVNULL)
+            self.assertTrue(self._wait_for_server('http://localhost:8000'), 'test server online, test_import_url')
+            cfg.resolve_imports()
+            self.assertEqual(1, cfg.a, 'import from url does not affect other values')
+            self.assertEqual(3, cfg.b.c, 'import from url nested values available')
+            self.assertEqual('2', cfg.d, 'import from url globals loaded')
+        finally:
+            p.terminate()
+            p.wait()
