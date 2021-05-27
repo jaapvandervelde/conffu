@@ -8,7 +8,7 @@ from io import StringIO, BytesIO
 from collections import defaultdict
 from pathlib import Path
 
-__version__ = '2.1.13'
+__version__ = '2.2.0'
 GLOBALS_KEY = '_globals'
 
 if os_name == 'nt':
@@ -463,21 +463,21 @@ class DictConfig(dict):
             self.update(kwargs)
         return self
 
-    def resolve_imports(self, prefix: str = 'import@') -> 'DictConfig':
+    def resolve_imports(self, import_prefix: str = None) -> 'DictConfig':
         """
         Replace the string values that start with a specific prefix with the contents of the file indicated by the
         rest of that string value.
-        :param prefix: prefix of string values to replace, everything after the prefix should be a valid location
+        :param import_prefix: prefix of string values to replace, everything after the prefix should be a valid location
         :return: self
         """
-        if not prefix:
-            raise SyntaxError('Empty prefix for resolve_imports not allowed.')
+        if import_prefix is None:
+            import_prefix = 'import@'
         for k, v in self.items():
-            if isinstance(v, str) and v.startswith(prefix):
+            if isinstance(v, str) and v.startswith(import_prefix):
                 # not referencing v, but self[k] to trigger global replacements
-                self[k] = self.__class__.load(self[k][len(prefix):], no_arguments=True)
+                self[k] = self.__class__.load(self[k][len(import_prefix):], no_arguments=True)
             elif isinstance(v, DictConfig):
-                v.resolve_imports(prefix)
+                v.resolve_imports(import_prefix)
         return self
 
     @classmethod
@@ -672,31 +672,6 @@ class DictConfig(dict):
         cfg.filename = filename
 
         return cfg
-
-    @classmethod
-    def startup(cls, defaults: Union[str, dict, None] = None, **kwargs):
-        """
-        Combines all common modes of passing configuration in a one-stop command, passing parameters to the relevant
-        methods being called.
-        :param defaults: either a string to a file or URL for default, or a dict defining defaults, or None
-        :param kwargs: parameters to pass to the main load method, the result of which will override defaults
-        :return: a completely resolved configuration, with defaults, file, environment, and arguments applied in order
-        """
-        if 'prefix' in kwargs:
-            prefix = kwargs['prefix']
-            del kwargs['prefix']
-        else:
-            prefix = 'import@'
-        if isinstance(defaults, str):
-            return cls.load(defaults, no_arguments=True).update(
-                cls.load(require_file=False, **kwargs)
-            ).full_update().resolve_imports(prefix=prefix)
-        elif defaults is None:
-            return cls.load(require_file=False, **kwargs).full_update().resolve_imports(prefix=prefix)
-        else:
-            return cls(defaults).update(
-                cls.load(require_file=False, **kwargs)
-            ).full_update().resolve_imports(prefix=prefix)
 
     @classmethod
     def from_file(cls, file: Union[TextIO, BytesIO, str, Path] = None, file_type: str = None,
@@ -1016,7 +991,8 @@ class DictConfig(dict):
 
     def full_update(self,
                     env_vars: list = None, exclude_vars: List = None, env_var_prefix: str = None,
-                    cli_args: Union[Dict[str, list], list] = None, aliases: Dict[str, str] = None):
+                    cli_args: Union[Dict[str, list], list] = None, aliases: Dict[str, str] = None,
+                    import_prefix: str = None):
         """
         Calls .parse_arguments(), .update_from_environment() and .update_from_arguments() with provided arguments,
         for convenience
@@ -1025,13 +1001,37 @@ class DictConfig(dict):
         :param env_vars: as in .update_from_environment()
         :param exclude_vars: as in .update_from_environment()
         :param env_var_prefix: as in .update_from_environment()
+        :param import_prefix: as in .resolve_imports()
         :return: self
         """
         # default for parse_args is True, while default for args is None, map one default to the other
         return self\
             .parse_arguments(cli_args, aliases)\
             .update_from_environment(env_vars, exclude_vars, env_var_prefix)\
-            .update_from_arguments()
+            .update_from_arguments()\
+            .resolve_imports(import_prefix)
+
+    @classmethod
+    def startup(cls, defaults: Union[str, dict, None] = None, **kwargs):
+        """
+        Combines all common modes of passing configuration in a one-stop command, passing parameters to the relevant
+        methods being called.
+        :param defaults: either a string to a file or URL for default, or a dict defining defaults, or None
+        :param kwargs: parameters to pass to the main load method and full_update
+        :return: a completely resolved configuration, with defaults, file, environment, and arguments applied in order
+        """
+        fu_kwargs = {kw: arg for kw, arg in kwargs.items() if kw in cls.full_update.__code__.co_varnames}
+        kwargs = {kw: arg for kw, arg in kwargs.items() if kw not in fu_kwargs}
+        if isinstance(defaults, str):
+            return cls.load(defaults, no_arguments=True).update(
+                cls.load(require_file=False, **kwargs)
+            ).full_update(**fu_kwargs)
+        elif defaults is None:
+            return cls.load(require_file=False, **kwargs).full_update(**fu_kwargs)
+        else:
+            return cls(defaults).update(
+                cls.load(require_file=False, **kwargs)
+            ).full_update(**fu_kwargs)
 
 
 class Config(DictConfig):

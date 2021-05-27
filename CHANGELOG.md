@@ -8,6 +8,15 @@ When next major version is released (3.x), these breaking changes will be applie
  - remove deprecated `no_arguments` from `.load()`
  - make `Config.shadow_attrs = True` the default 
 
+## [2.2.0] - 2021-05-28
+
+### Changed
+  - parameters passed to `.startup()` may be passed to `.full_update()` instead of load, if they match its signature
+
+### Fixes
+  - support for `.resolve_imports()` in `.full_update()` was missing
+  - parameters could not be passed to `.full_update()` through `.startup()`
+
 ## [2.1.13] - 2021-05-27 (3)
 
 ### Fixes
