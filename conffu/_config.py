@@ -8,7 +8,6 @@ from io import StringIO, BytesIO
 from collections import defaultdict
 from pathlib import Path
 
-__version__ = '2.2.0'
 GLOBALS_KEY = '_globals'
 
 if os_name == 'nt':
@@ -116,16 +115,15 @@ class DictConfig(dict):
                     self.globals = self.__class__(no_globals)
             else:
                 self.globals = None
-        else:
+        elif GLOBALS_KEY not in self or not isinstance(super(DictConfig, self).__getitem__(GLOBALS_KEY), dict):
             # globals as part of a config only work if they are in the config and are actually a dict (or a Config)
-            if GLOBALS_KEY not in self or not isinstance(super(DictConfig, self).__getitem__(GLOBALS_KEY), dict):
-                if GLOBALS_KEY in self:
-                    del self[GLOBALS_KEY]
-                self.globals = None
-            else:
-                # cast _globals dict in self to self type
-                self.globals = self.__class__(super(DictConfig, self).__getitem__(GLOBALS_KEY))
+            if GLOBALS_KEY in self:
                 del self[GLOBALS_KEY]
+            self.globals = None
+        else:
+            # cast _globals dict in self to self type
+            self.globals = self.__class__(super(DictConfig, self).__getitem__(GLOBALS_KEY))
+            del self[GLOBALS_KEY]
         self.disable_globals = False
         self.filename = None
         self.arguments = None
@@ -152,15 +150,15 @@ class DictConfig(dict):
         :param skip_iterables: whether dict elements of lists, tuples, or subtypes should be similarly cast
         :return dict: the in-place modified a_dict is returned as well
         """
-        for key in a_dict:
+        for key, value in a_dict.items():
             if isinstance(a_dict[key], from_type):
-                self._dict_cast(a_dict[key], from_type, to_type, skip_iterables)
+                self._dict_cast(value, from_type, to_type, skip_iterables)
                 if to_type is self.__class__:
                     a_dict[key] = to_type(a_dict[key], no_globals=self.globals, no_key_error=self.no_key_error,
                                           no_compound_keys=self.no_compound_keys)
                 else:
                     a_dict[key] = to_type(a_dict[key])
-            elif not skip_iterables and (isinstance(a_dict[key], list) or isinstance(a_dict[key], tuple)):
+            elif not skip_iterables and isinstance(a_dict[key], (list, tuple)):
                 a_dict[key] = a_dict[key].__class__(
                     part if not isinstance(part, from_type)
                     else (
@@ -279,24 +277,23 @@ class DictConfig(dict):
     def _subst_globals(self, value: Any) -> Any:
         if self.globals is None or self.disable_globals:
             return value
-        else:
-            if isinstance(value, str):
-                try:
-                    return value.format_map(self._Globals(self.globals))
-                except AttributeError:
-                    return value
-            elif isinstance(value, list) or isinstance(value, tuple):
-                # noinspection PyArgumentList
-                return value.__class__(self._subst_globals(v) for v in value)
-            elif isinstance(value, dict):
-                if isinstance(value, Config):
-                    # return the config at this time, as it will perform replacements when needed (if needed)
-                    return value
-                else:
-                    # noinspection PyArgumentList
-                    return value.__class__({k: self._subst_globals(v) for k, v in value.items()})
-            else:
+        if isinstance(value, str):
+            try:
+                return value.format_map(self._Globals(self.globals))
+            except AttributeError:
                 return value
+        elif isinstance(value, (list, tuple)):
+            # noinspection PyArgumentList
+            return value.__class__(self._subst_globals(v) for v in value)
+        elif isinstance(value, dict):
+            if isinstance(value, Config):
+                # return the config at this time, as it will perform replacements when needed (if needed)
+                return value
+            else:
+                # noinspection PyArgumentList
+                return value.__class__({k: self._subst_globals(v) for k, v in value.items()})
+        else:
+            return value
 
     def subst_globals(self) -> 'DictConfig':
         """
@@ -340,7 +337,7 @@ class DictConfig(dict):
         :param default: default to return if key is not found
         :return: self[key]
         """
-        return default if (result := self.__getitem__(key)) is None else result
+        return default if key not in self or (result := self.__getitem__(key)) is None else result
 
     def pop(self, key: Hashable, default: Any = None) -> Any:
         """
@@ -352,9 +349,8 @@ class DictConfig(dict):
         result = self.__getitem__(key)
         if result is None:
             return default
-        else:
-            del self[key]
-            return result
+        del self[key]
+        return result
 
     def __setitem__(self, key: Hashable, value: Any):
         """
@@ -371,9 +367,8 @@ class DictConfig(dict):
 
         keys = self._split_key(key)
 
-        if isinstance(value, dict):
-            if not isinstance(value, DictConfig):
-                value = self.__class__(value, no_globals=self.globals)
+        if isinstance(value, dict) and not isinstance(value, DictConfig):
+            value = self.__class__(value, no_globals=self.globals)
 
         if len(keys) == 0:
             raise KeyError(f'Invalid key value {key}.')
@@ -390,21 +385,17 @@ class DictConfig(dict):
                 except AttributeError:
                     pass
         # once assignment was successful, update globals
-        if isinstance(value, DictConfig):
-            # when being loaded through pickle, it may not
-            if hasattr(self, 'globals'):
-                if hasattr(self, 'globals') and isinstance(value.globals, dict):
-                    new_globals = value.globals.copy()
-                    new_globals.update(self.globals)
-                    # update the main globals to match
-                    if self.globals is not None:
-                        self.globals.update(new_globals)
-                    else:
-                        self.globals = new_globals
-                    # the assigned globals to the main globals
-                    value.globals = self.globals
+        if isinstance(value, DictConfig) and hasattr(self, 'globals'):
+            if isinstance(value.globals, dict):
+                new_globals = value.globals.copy()
+                new_globals.update(self.globals)
+                # update the main globals to match
+                if self.globals is not None:
+                    self.globals.update(new_globals)
                 else:
-                    value.globals = self.globals
+                    self.globals = new_globals
+            # the assigned globals to the main globals
+            value.globals = self.globals
 
     def __delitem__(self, key: Hashable):
         try:
@@ -451,9 +442,8 @@ class DictConfig(dict):
             if hasattr(other, 'globals'):
                 if self.globals is not None:
                     self.globals.update(other.globals)
-                else:
-                    if other.globals is not None:
-                        self.globals = other.globals.copy()
+                elif other.globals is not None:
+                    self.globals = other.globals.copy()
             for k, v in other.items():
                 if k in self and isinstance(self[k], DictConfig):
                     self[k].update(v)
@@ -593,28 +583,25 @@ class DictConfig(dict):
         """
         cfg = None
         args = None
-        if source is None:
-            if no_arguments is not True and cli_args is not False:
-                args = cls._parse_arguments(cli_args=cli_args)
-                if 'cfg' in args:
-                    source = args['cfg'][0]
+        if source is None and not no_arguments and cli_args is not False:
+            args = cls._parse_arguments(cli_args=cli_args)
+            if 'cfg' in args:
+                source = args['cfg'][0]
         if source is None:
             if require_file:
                 raise SyntaxError('from_file requires a file parameter or configuration should be passed on the cli')
-            else:
-                cfg = cls()
-                filename = None
+            cfg = cls()
+            filename = None
         else:
             # determine filename and whether a file needs to be opened
             open_file = False
-            if isinstance(source, str) or isinstance(source, Path):
+            if isinstance(source, (str, Path)):
                 source = str(source)
                 try:
-                    if Path(source).is_file():
-                        filename = source
-                        open_file = True
-                    else:
+                    if not Path(source).is_file():
                         raise OSError
+                    filename = source
+                    open_file = True
                 except OSError:
                     try:
                         # at this point, file is neither a handle nor a valid file name, try it as a URL
@@ -646,11 +633,9 @@ class DictConfig(dict):
                         source = open(filename, 'r')
                     elif file_type == 'pickle':
                         source = open(filename, 'rb')
-                else:
-                    # if file is either a file object opened with 'b', or not a descendent of StringIO, wrap it
-                    if file_type in ['json', 'xml'] and (
+                elif file_type in ['json', 'xml'] and (
                             (hasattr(source, 'mode') and source.mode == 'b') or not isinstance(source, StringIO)):
-                        source = StringIO(source.read().decode())
+                    source = StringIO(source.read().decode())
 
                 # based on file_type, obtain cfg from the file handle
                 if load_kwargs is None:
@@ -695,7 +680,7 @@ class DictConfig(dict):
         """
         if file is None:
             file = self.filename
-        if isinstance(file, str) or isinstance(file, Path):
+        if isinstance(file, (str, Path)):
             file = str(file)  # Path needs to be str as well
             filename = str(file)
         else:
@@ -772,19 +757,18 @@ class DictConfig(dict):
         :param aliases: as for .parse_arguments()
         :return: parsed arguments as a dict or the same type as cli_args
         """
-        if isinstance(cli_args, dict):
-            if isinstance(cli_args, defaultdict):
-                # noinspection PyArgumentList
-                return cli_args.__class__(
-                    cli_args.default_factory,
-                    {aliases[k] if aliases is not None and k in aliases else k: v for k, v in cli_args.items()})
-            else:
-                # noinspection PyArgumentList
-                return cli_args.__class__(
-                    {aliases[k] if aliases is not None and k in aliases else k: v for k, v in cli_args.items()})
-        else:
+        if not isinstance(cli_args, dict):
             return argv_to_dict(cli_args if isinstance(cli_args, list) else argv,
                                 cls.ARG_MAP if aliases is None else aliases | cls.ARG_MAP)
+        if isinstance(cli_args, defaultdict):
+            # noinspection PyArgumentList
+            return cli_args.__class__(
+                cli_args.default_factory,
+                {aliases[k] if aliases is not None and k in aliases else k: v for k, v in cli_args.items()})
+        else:
+            # noinspection PyArgumentList
+            return cli_args.__class__(
+                {aliases[k] if aliases is not None and k in aliases else k: v for k, v in cli_args.items()})
 
     def parse_arguments(self, cli_args: Union[Dict[str, list], list] = None, aliases: Dict[str, str] = None):
         """
@@ -844,13 +828,11 @@ class DictConfig(dict):
                             if self.globals is None:
                                 self.globals = {}
                             self.globals[v[1:-1]] = None
+                        elif v in recursive_keys:
+                            environment[recursive_keys[v]] = getenv(var_name)
                         else:
-                            if v in recursive_keys:
-                                environment[recursive_keys[v]] = getenv(var_name)
-                            else:
-                                environment[v] = getenv(var_name)
-                                self[v] = None
-            # add existing globals found in environment in braces (if not excluded)
+                            environment[v] = getenv(var_name)
+                            self[v] = None
             elif self.globals is not None:
                 for key in self.globals:
                     if (getenv(f'{{{key}}}') is not None and
@@ -895,10 +877,7 @@ class DictConfig(dict):
                 d[keys[-1]] = value.lower() not in ['0', 'false']
             else:
                 # for other types, cast to type of existing key, or str if None
-                if d[key] is None:
-                    t = str
-                else:
-                    t = type(d[key])
+                t = str if d[key] is None else type(d[key])
                 try:
                     d[keys[-1]] = t(value)
                 except ValueError:
@@ -978,13 +957,12 @@ class DictConfig(dict):
                 # unpack single value lists
                 if len(value) == 1:
                     update(key, value[0])
+                elif not value:
+                    # set to True for empty value
+                    update(key, True)
                 else:
-                    if not value:
-                        # set to True for empty value
-                        update(key, True)
-                    else:
-                        # set as list for multi-value
-                        update(key, value)
+                    # set as list for multi-value
+                    update(key, value)
 
         # allow chaining
         return self

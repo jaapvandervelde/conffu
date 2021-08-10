@@ -1,6 +1,6 @@
 # Changelog
 
-## To do
+## [Unreleased] - 2021-08-10
 
 When next major version is released (3.x), these breaking changes will be applied:
  - remove deprecated `skip_lists` from all methods
@@ -8,7 +8,11 @@ When next major version is released (3.x), these breaking changes will be applie
  - remove deprecated `no_arguments` from `.load()`
  - make `Config.shadow_attrs = True` the default 
 
-## [Unreleased] - 2021-05-28
+## [2.2.1] - 2021-08-10
+
+### Fixed
+  - .get() missed a default case for dicts that don't allow non-existent keys to be referenced
+  - refactoring of a dozen statements 
 
 ### Changed
   - update to the changelog links
@@ -242,6 +246,7 @@ with cfg.direct:
   - First publicly released version after a major rewrite.
   
 [Unreleased]: /../../../
+[2.2.1]: /../../../tags/2.2.1
 [2.2.0]: /../../../tags/2.2.0
 [2.1.13]: /../../../tags/2.1.13
 [2.1.12]: /../../../tags/2.1.12
