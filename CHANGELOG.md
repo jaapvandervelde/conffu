@@ -1,12 +1,17 @@
 # Changelog
 
-## [Unreleased] - 2021-08-10
+## [Unreleased] - 2021-08-13
 
 When next major version is released (3.x), these breaking changes will be applied:
  - remove deprecated `skip_lists` from all methods
  - remove deprecated `.from_file()`
  - remove deprecated `no_arguments` from `.load()`
  - make `Config.shadow_attrs = True` the default 
+
+## [2.2.2] - 2021-08-13
+
+### Changed
+  - configuration will no longer fail if a key using a period matches an existing key (even when compound keys are enabled)  
 
 ## [2.2.1] - 2021-08-10
 
@@ -246,6 +251,7 @@ with cfg.direct:
   - First publicly released version after a major rewrite.
   
 [Unreleased]: /../../../
+[2.2.2]: /../../../tags/2.2.2
 [2.2.1]: /../../../tags/2.2.1
 [2.2.0]: /../../../tags/2.2.0
 [2.1.13]: /../../../tags/2.1.13

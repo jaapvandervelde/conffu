@@ -314,6 +314,10 @@ class DictConfig(dict):
 
         keys = self._split_key(key)
 
+        if keys[0] not in self and key in self:
+            # if the key itself contains periods and the combined whole is a valid key
+            keys = [key]
+
         if self.no_key_error and keys[0] not in self:
             return None
         if isinstance(super(DictConfig, self).__getitem__(keys[0]), dict):
