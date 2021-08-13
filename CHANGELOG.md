@@ -8,6 +8,11 @@ When next major version is released (3.x), these breaking changes will be applie
  - remove deprecated `no_arguments` from `.load()`
  - make `Config.shadow_attrs = True` the default 
 
+## [2.2.3] - 2021-08-13
+
+### Fixes
+  - logic error when using compound key unintentionally  
+
 ## [2.2.2] - 2021-08-13
 
 ### Changed
@@ -251,6 +256,7 @@ with cfg.direct:
   - First publicly released version after a major rewrite.
   
 [Unreleased]: /../../../
+[2.2.3]: /../../../tags/2.2.3
 [2.2.2]: /../../../tags/2.2.2
 [2.2.1]: /../../../tags/2.2.1
 [2.2.0]: /../../../tags/2.2.0

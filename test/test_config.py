@@ -268,6 +268,10 @@ class TestConfig(unittest.TestCase):
         self.assertEqual('2', cfg.get('b'), 'get also resolves globals')
         self.assertEqual(3, cfg.get('c.d'), 'get also resolves compound keys')
 
+    def test_relaxed_compound(self):
+        cfg = Config({'63.2%': '1'})
+        self.assertEqual('1', cfg['63.2%'])
+
     def test_pop(self):
         cfg = Config({'_globals':{'g': 2}, 'a': 1, 'b': '{g}', 'c': {'d': 3}})
         self.assertEqual(1, cfg.pop('a'), 'pop works as expected')
