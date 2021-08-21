@@ -280,6 +280,12 @@ class TestConfig(unittest.TestCase):
         cfg = Config({'a.b': {'c': '1'}})
         self.assertEqual('1', cfg['a.b'].c, 'key available as non-compound is accessed normally as attribute')
 
+    def test_relaxed_compound_problematic(self):
+        cfg = Config({
+            'a.b': [1],
+        })
+        self.assertEqual([1], cfg['a.b'], 'test case from oversee [1]')
+
     def test_pop(self):
         cfg = Config({'_globals':{'g': 2}, 'a': 1, 'b': '{g}', 'c': {'d': 3}})
         self.assertEqual(1, cfg.pop('a'), 'pop works as expected')

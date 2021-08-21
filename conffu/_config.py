@@ -166,18 +166,24 @@ class DictConfig(dict):
                 else:
                     a_dict[key] = to_type(a_dict[key])
             elif not skip_iterables and isinstance(a_dict[key], (list, tuple)):
-                a_dict[key] = a_dict[key].__class__(
-                    part if not isinstance(part, from_type)
-                    else (
-                        to_type(self._dict_cast(part, from_type, to_type, skip_iterables),
-                                no_globals=self.globals, no_key_error=self.no_key_error,
-                                no_compound_keys=self.no_compound_keys)
-                        if to_type is self.__class__
-                        else to_type(self._dict_cast(part, from_type, to_type, skip_iterables))
+                try:
+                    if isinstance(a_dict, self.__class__):
+                        a_dict._casting = True
+                    a_dict[key] = a_dict[key].__class__(
+                        part if not isinstance(part, from_type)
+                        else (
+                            to_type(self._dict_cast(part, from_type, to_type, skip_iterables),
+                                    no_globals=self.globals, no_key_error=self.no_key_error,
+                                    no_compound_keys=self.no_compound_keys)
+                            if to_type is self.__class__
+                            else to_type(self._dict_cast(part, from_type, to_type, skip_iterables))
+                        )
+                        # don't accidentally replace globals at this time, as a_dict[key] will access __getitem__
+                        for part in (a_dict._get_direct(key) if isinstance(a_dict, DictConfig) else a_dict[key])
                     )
-                    # don't accidentally replace globals at this time, as a_dict[key] will access __getitem__
-                    for part in (a_dict._get_direct(key) if isinstance(a_dict, DictConfig) else a_dict[key])
-                )
+                finally:
+                    if isinstance(a_dict, self.__class__):
+                        a_dict._casting = False
         return a_dict
 
     def _dicts_to_config(self, d: dict, skip_iterables=False) -> dict:

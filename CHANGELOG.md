@@ -8,10 +8,10 @@ When next major version is released (3.x), these breaking changes will be applie
  - remove deprecated `no_arguments` from `.load()`
  - make `Config.shadow_attrs = True` the default 
 
-## [2.2.4a] - 2021-08-21
+## [2.2.5] - 2021-08-21
 
 ### Fixes
-  - isinstance access error, workaround implemented  
+  - isinstance access error for config nested in list with compound keys  
 
 ## [2.2.4] - 2021-08-21
 
@@ -266,6 +266,7 @@ with cfg.direct:
   - First publicly released version after a major rewrite.
   
 [Unreleased]: /../../../
+[2.2.5]: /../../../tags/2.2.5
 [2.2.4]: /../../../tags/2.2.4
 [2.2.3]: /../../../tags/2.2.3
 [2.2.2]: /../../../tags/2.2.2
