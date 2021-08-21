@@ -152,7 +152,7 @@ class DictConfig(dict):
         :return dict: the in-place modified a_dict is returned as well
         """
         for key, value in a_dict.items():
-            if isinstance(a_dict[key], from_type):
+            if isinstance(value, from_type):
                 self._dict_cast(value, from_type, to_type, skip_iterables)
                 if to_type is self.__class__:
                     try:
