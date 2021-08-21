@@ -102,6 +102,7 @@ class DictConfig(dict):
         """
         super(DictConfig, self).__init__(*args)
         self.no_compound_keys = no_compound_keys
+        self._casting = False  # overrides no_compound_keys during casting
         self.no_key_error = no_key_error
         if no_globals is None:
             self.globals = None
@@ -154,8 +155,14 @@ class DictConfig(dict):
             if isinstance(a_dict[key], from_type):
                 self._dict_cast(value, from_type, to_type, skip_iterables)
                 if to_type is self.__class__:
-                    a_dict[key] = to_type(a_dict[key], no_globals=self.globals, no_key_error=self.no_key_error,
-                                          no_compound_keys=self.no_compound_keys)
+                    try:
+                        if isinstance(a_dict, self.__class__):
+                            a_dict._casting = True
+                        a_dict[key] = to_type(a_dict[key], no_globals=self.globals, no_key_error=self.no_key_error,
+                                              no_compound_keys=self.no_compound_keys)
+                    finally:
+                        if isinstance(a_dict, self.__class__):
+                            a_dict._casting = False
                 else:
                     a_dict[key] = to_type(a_dict[key])
             elif not skip_iterables and isinstance(a_dict[key], (list, tuple)):
@@ -364,7 +371,7 @@ class DictConfig(dict):
         :return: None
         """
         try:
-            if self.no_compound_keys:
+            if self.no_compound_keys or self._casting:
                 return super(DictConfig, self).__setitem__(key, value)
         except AttributeError:
             pass

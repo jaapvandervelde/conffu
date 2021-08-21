@@ -1,12 +1,17 @@
 # Changelog
 
-## [Unreleased] - 2021-08-13
+## [Unreleased] - 2021-08-21
 
 When next major version is released (3.x), these breaking changes will be applied:
  - remove deprecated `skip_lists` from all methods
  - remove deprecated `.from_file()`
  - remove deprecated `no_arguments` from `.load()`
  - make `Config.shadow_attrs = True` the default 
+
+## [2.2.4] - 2021-08-21
+
+### Fixes
+  - nested configuration with relaxed compound keys caused an error  
 
 ## [2.2.3] - 2021-08-13
 
@@ -256,6 +261,7 @@ with cfg.direct:
   - First publicly released version after a major rewrite.
   
 [Unreleased]: /../../../
+[2.2.4]: /../../../tags/2.2.4
 [2.2.3]: /../../../tags/2.2.3
 [2.2.2]: /../../../tags/2.2.2
 [2.2.1]: /../../../tags/2.2.1

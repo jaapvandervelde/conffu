@@ -270,7 +270,15 @@ class TestConfig(unittest.TestCase):
 
     def test_relaxed_compound(self):
         cfg = Config({'63.2%': '1'})
-        self.assertEqual('1', cfg['63.2%'])
+        self.assertEqual('1', cfg['63.2%'], 'key available as non-compound is accessed normally')
+
+    def test_relaxed_compound_nested(self):
+        cfg = Config({'63.2%': {'a': '1'}})
+        self.assertEqual({'a': '1'}, cfg['63.2%'], 'dictionary set as value for non-compound with period')
+        self.assertEqual('1', cfg['63.2%']['a'], 'key available as non-compound is accessed normally as index')
+
+        cfg = Config({'a.b': {'c': '1'}})
+        self.assertEqual('1', cfg['a.b'].c, 'key available as non-compound is accessed normally as attribute')
 
     def test_pop(self):
         cfg = Config({'_globals':{'g': 2}, 'a': 1, 'b': '{g}', 'c': {'d': 3}})
