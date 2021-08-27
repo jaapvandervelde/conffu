@@ -1,6 +1,6 @@
 from re import split, sub
 from typing import DefaultDict, Dict, Union, TextIO, List, Any, Generator, Tuple, Iterable, Mapping, Hashable
-from sys import argv
+from sys import argv, version_info
 from os import getenv, name as os_name, environ as os_environ
 if os_name == 'nt':
     from nt import environ as nt_environ
@@ -717,7 +717,10 @@ class DictConfig(dict):
             data = self._configs_to_dict(self.__class__(self), skip_iterables=skip_iterables)
             if include_globals:
                 # force globals to be at the start of data
-                data = {GLOBALS_KEY: self.globals, **data}
+                if version_info[0] >= 3 and version_info[1] >= 6:
+                    data = {GLOBALS_KEY: self.globals, **data}
+                else:
+                    data[GLOBALS_KEY] = self.globals
 
             import json
             if isinstance(file, str):
@@ -776,8 +779,10 @@ class DictConfig(dict):
         :return: parsed arguments as a dict or the same type as cli_args
         """
         if not isinstance(cli_args, dict):
-            return argv_to_dict(cli_args if isinstance(cli_args, list) else argv,
-                                cls.ARG_MAP if aliases is None else aliases | cls.ARG_MAP)
+            arg_map = cls.ARG_MAP
+            if aliases is not None:
+                arg_map.update(cls.ARG_MAP)
+            return argv_to_dict(cli_args if isinstance(cli_args, list) else argv, arg_map)
         if isinstance(cli_args, defaultdict):
             # noinspection PyArgumentList
             return cli_args.__class__(
@@ -800,7 +805,7 @@ class DictConfig(dict):
         if self.arguments is None:
             self.arguments = {}
 
-        self.arguments = self.arguments | self._parse_arguments(cli_args, aliases)
+        self.arguments.update(self._parse_arguments(cli_args, aliases))
 
         # allow chaining
         return self
