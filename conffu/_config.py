@@ -745,7 +745,7 @@ class DictConfig(dict):
             yield key, (key,)
             if isinstance(value, DictConfig):
                 for compound_sub_key, sub_key in value._recursive_keys_tuples():
-                    yield '{}.{}'.format(key, ".".join(sub_key)), tuple([key, *sub_key])
+                    yield '{}.{}'.format(key, ".".join(sub_key)), (key,) + sub_key
 
     def recursive_keys(self) -> Dict[str, Tuple[str]]:
         """

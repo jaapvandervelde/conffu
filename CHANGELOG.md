@@ -8,9 +8,10 @@ When next major version is released (3.x), these breaking changes will be applie
  - remove deprecated `no_arguments` from `.load()`
  - make `Config.shadow_attrs = True` the default 
 
-## [2.2.9] - 2021-08-27
+## [2.2.10] - 2021-08-27
 
 ### Fixes
+  - Removed tuple starred expression to allow for Python 3.4.4 compatibility, the last version of Python to work on Windows XP  
   - Removed dictionary unpacking to allow for Python 3.4.4 compatibility, the last version of Python to work on Windows XP  
   - Removed dictionary pipe updates to allow for Python 3.4.4 compatibility, the last version of Python to work on Windows XP  
   - Removed walrus assignment to allow for Python 3.4.4 compatibility, the last version of Python to work on Windows XP  
@@ -278,7 +279,7 @@ with cfg.direct:
   - First publicly released version after a major rewrite.
   
 [Unreleased]: /../../../
-[2.2.9]: /../../../tags/2.2.9
+[2.2.10]: /../../../tags/2.2.10
 [2.2.6]: /../../../tags/2.2.6
 [2.2.5]: /../../../tags/2.2.5
 [2.2.4]: /../../../tags/2.2.4
