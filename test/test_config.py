@@ -138,6 +138,15 @@ class TestConfig(unittest.TestCase):
         cfg['more'] = cfg['more']
         self.assertEqual(cfg['more'], None, 'with no_key_error, reading non-existent keys returns None')
 
+        cfg = DictConfig({'test': 1}, no_key_error=False)
+        with self.assertRaises(KeyError):
+            __ = cfg['more']
+        try:
+            __ = cfg.get('more')
+        except KeyError:
+            self.fail('get never raises a KeyError')
+
+
     def test_split_keys(self):
         cfg = Config({'test': {'nested': 1}})
         self.assertEqual(1, cfg['test.nested'], 'compound keys work as index')
@@ -267,6 +276,19 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(1, cfg.get('a'), 'get works as expected')
         self.assertEqual('2', cfg.get('b'), 'get also resolves globals')
         self.assertEqual(3, cfg.get('c.d'), 'get also resolves compound keys')
+
+        self.assertEqual('x', cfg.get('d', 'x'), 'get returns default for non-existent keys')
+
+        cfg = Config({'_globals':{'g': 2}, 'a': 1, 'b': '{g}', 'c': {'d': 3}}, no_key_error=True)
+        self.assertEqual('x', cfg.get('d', 'x'), 'get returns default for non-existent keys')
+
+    def test_get_as_type(self):
+        cfg = Config({'a': True, 'b': 'True', 'c': 0, 'd': 10})
+        self.assertEqual(True, cfg.get_as_type('a', bool), 'same type get just returns value')
+        self.assertEqual(True, cfg.get_as_type('b', bool), 'string booleans are returned as boolean')
+        self.assertEqual(False, cfg.get_as_type('c', bool), 'int booleans are returned as boolean')
+        self.assertEqual(True, cfg.get_as_type('d', bool), 'non-false string values are always true')
+        self.assertEqual(None, cfg.get_as_type('x', bool), 'non-existent values are still returned as None')
 
     def test_relaxed_compound(self):
         cfg = Config({'63.2%': '1'})

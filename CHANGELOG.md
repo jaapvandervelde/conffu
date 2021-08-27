@@ -8,6 +8,12 @@ When next major version is released (3.x), these breaking changes will be applie
  - remove deprecated `no_arguments` from `.load()`
  - make `Config.shadow_attrs = True` the default 
 
+## [2.2.12] - 2021-08-27
+
+### Added
+  - added additional test for get edge cases
+  - added get_as_type() method, specifically to deal with command line arguments like booleans
+
 ## [2.2.11] - 2021-08-27
 
 ### Fixes

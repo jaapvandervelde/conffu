@@ -1,5 +1,5 @@
 from re import split, sub
-from typing import DefaultDict, Dict, Union, TextIO, List, Any, Generator, Tuple, Iterable, Mapping, Hashable
+from typing import DefaultDict, Dict, Union, TextIO, List, Any, Generator, Tuple, Iterable, Mapping, Hashable, Type
 from sys import argv, version_info
 from os import getenv, name as os_name, environ as os_environ
 if os_name == 'nt':
@@ -364,6 +364,13 @@ class DictConfig(dict):
         except KeyError:
             return default
 
+    def get_as_type(self, key: Hashable, as_type: Type, default: Any = None) -> Any:
+        value = self.get(key, default)
+        if value is None:
+            return None
+        if as_type is bool and isinstance(value, str):
+                return value.lower() not in ['0', 'f', 'false']
+        return as_type(value)
 
     def pop(self, key: Hashable, default: Any = None) -> Any:
         """
