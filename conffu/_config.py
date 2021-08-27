@@ -37,7 +37,7 @@ def argv_to_dict(args: List[str], aliases: Dict[str, str] = None) -> DefaultDict
         # arguments are prefixed with -, -- or / - no distinction for long names, so --h or -help would be valid
         if len(a) > 0 and a[0] in SWITCH_CHARS:
             if len(a) == 1:
-                raise SyntaxError(f'Syntax error in argument: {a}')
+                raise SyntaxError('Syntax error in argument: {}'.format(a))
             key = a[2:] if a[:2] == '--' else a[1:]
             key = key if key not in aliases else aliases[key]
             # ensure the key is created (for arguments without value)
@@ -285,7 +285,7 @@ class DictConfig(dict):
         Helper class for _subst_globals(), re-wrapping missing keys in {}
         """
         def __missing__(self, key: Hashable) -> str:
-            return f'{{{key}}}'
+            return '{{{}}}'.format(key)
 
     def _subst_globals(self, value: Any) -> Any:
         if self.globals is None or self.disable_globals:
@@ -344,7 +344,7 @@ class DictConfig(dict):
                 if self.no_key_error:
                     return None
                 else:
-                    raise KeyError(f'Multi-part key, but `{keys[0]}` is not a dictionary or Config.')
+                    raise KeyError('Multi-part key, but `{}` is not a dictionary or Config.'.format(keys[0]))
             return self._subst_globals(super(DictConfig, self).__getitem__(keys[0]))
 
     def get(self, key: Hashable, default: Any = None) -> Any:
@@ -388,7 +388,7 @@ class DictConfig(dict):
             value = self.__class__(value, no_globals=self.globals)
 
         if len(keys) == 0:
-            raise KeyError(f'Invalid key value {key}.')
+            raise KeyError('Invalid key value {}.'.format(key))
         elif len(keys) == 1:
             super(DictConfig, self).__setitem__(keys[0], value)
         else:
@@ -424,7 +424,7 @@ class DictConfig(dict):
         keys = self._split_key(key)
 
         if len(keys) == 0:
-            raise KeyError(f'Invalid key value {key}.')
+            raise KeyError('Invalid key value {}.'.format(key))
         elif len(keys) == 1:
             super(DictConfig, self).__delitem__(keys[0])
         else:
@@ -505,7 +505,7 @@ class DictConfig(dict):
             elif ct == 'str':
                 return root.text
             else:
-                raise SyntaxError(f'Unknown type {ct} in xml.')
+                raise SyntaxError('Unknown type {} in xml.'.format(ct))
         result = {}
         for child in root:
             if len(child):
@@ -574,7 +574,7 @@ class DictConfig(dict):
                     for k, v in [split(r'(?<!\\)=', pair) for pair in split(r'(?<!\\)&', url_header)]
                 }
             except ValueError:
-                raise ValueError(f'Invalid header fields: {url_header}')
+                raise ValueError('Invalid header fields: {}'.format(url_header))
         for k, v in url_header.items():
             req.add_header(k, v)
         return request.urlopen(req), Path(urlparse(url).path).name
@@ -630,7 +630,7 @@ class DictConfig(dict):
                         source, filename = cls._file_from_url(source, url_header if url_header is not None else {})
                     except (IOError, ValueError):
                         # at this point, file is neither a handle, a valid file name nor a valid URL
-                        raise FileExistsError(f'Config file "{source}" not found.')
+                        raise FileExistsError('Config file "{}" not found.'.format(source))
             else:
                 try:
                     filename = source.name
@@ -742,7 +742,7 @@ class DictConfig(dict):
             yield key, (key,)
             if isinstance(value, DictConfig):
                 for compound_sub_key, sub_key in value._recursive_keys_tuples():
-                    yield f'{key}.{".".join(sub_key)}', tuple([key, *sub_key])
+                    yield '{}.{}'.format(key, ".".join(sub_key)), tuple([key, *sub_key])
 
     def recursive_keys(self) -> Dict[str, Tuple[str]]:
         """
@@ -852,9 +852,9 @@ class DictConfig(dict):
                             self[v] = None
             elif self.globals is not None:
                 for key in self.globals:
-                    if (getenv(f'{{{key}}}') is not None and
+                    if (getenv('{{{}}}'.format(key)) is not None and
                             self._case_safe(key, exclude_vars) not in exclude_vars):
-                        environment[('_globals', key)] = getenv(f'{{{key}}}')
+                        environment[('_globals', key)] = getenv('{{{}}}'.format(key))
                         if self.globals is None:
                             self.globals = {}
         else:
@@ -898,7 +898,7 @@ class DictConfig(dict):
                 try:
                     d[keys[-1]] = t(value)
                 except ValueError:
-                    raise SyntaxError(f'Cannot cast {value} to {t} from environment')
+                    raise SyntaxError('Cannot cast {} to {} from environment'.format(value, t))
 
         # allow chaining
         return self
@@ -921,7 +921,7 @@ class DictConfig(dict):
                 try:
                     self[k] = t(v)
                 except ValueError:
-                    raise SyntaxError(f'Cannot cast {v} to {t} from arguments')
+                    raise SyntaxError('Cannot cast {} to {} from arguments'.format(v, t))
         else:
             # define new key
             self.from_arguments.append(k)
@@ -945,7 +945,7 @@ class DictConfig(dict):
             try:
                 self.globals[k] = t(v)
             except ValueError:
-                raise SyntaxError(f'Cannot cast {v} to {t} from arguments')
+                raise SyntaxError('Cannot cast {} to {} from arguments'.format(v, t))
 
     def update_from_arguments(self, cli_args: Union[Dict[str, list], list] = None, aliases: Dict[str, str] = None):
         """
@@ -1054,7 +1054,7 @@ class Config(DictConfig):
         if attr in self:
             return self[attr]
         else:
-            raise AttributeError(f'No attribute or key {attr} for {self.__class__}')
+            raise AttributeError('No attribute or key {} for {}'.format(attr, self.__class__))
 
     def __setattr__(self, attr, value):
         # check if configuration items can shadow object attributes, not using hasattr, as it will call __getattr__
@@ -1069,4 +1069,4 @@ class Config(DictConfig):
         elif attr in self:
             del self[attr]
         else:
-            raise AttributeError(f'No attribute or key {attr} for {self.__class__}')
+            raise AttributeError('No attribute or key {} for {}'.format(attr, self.__class__))
