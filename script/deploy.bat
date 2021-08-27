@@ -3,7 +3,8 @@ call script/run_tests.bat
 if errorlevel 1 goto tests_failed
 git add .
 git commit -m %1
-git push
+git push github
+git push origin
 call script/cleanup.bat
 call script/build.bat
 twine upload dist/*

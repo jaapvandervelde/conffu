@@ -5,7 +5,7 @@ from os import getenv, name as os_name, environ as os_environ
 if os_name == 'nt':
     from nt import environ as nt_environ
 from io import StringIO, BytesIO
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 from pathlib import Path
 
 GLOBALS_KEY = '_globals'
@@ -716,11 +716,10 @@ class DictConfig(dict):
             skip_iterables = skip_iterables or ('skip_iterables' in kwargs and kwargs['skip_iterables'])
             data = self._configs_to_dict(self.__class__(self), skip_iterables=skip_iterables)
             if include_globals:
-                # force globals to be at the start of data
-                if version_info[0] >= 3 and version_info[1] >= 6:
-                    data = {GLOBALS_KEY: self.globals, **data}
-                else:
-                    data[GLOBALS_KEY] = self.globals
+                # force globals to be at the start of data, using OrderedDict for 3.4.4 compatibility
+                data = OrderedDict(data)
+                data[GLOBALS_KEY] = self.globals
+                data.move_to_end(GLOBALS_KEY, last=False)
 
             import json
             if isinstance(file, str):
