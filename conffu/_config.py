@@ -354,7 +354,8 @@ class DictConfig(dict):
         :param default: default to return if key is not found
         :return: self[key]
         """
-        return default if key not in self or (result := self.__getitem__(key)) is None else result
+        result = self.__getitem__(key)
+        return default if key not in self or result is None else result
 
     def pop(self, key: Hashable, default: Any = None) -> Any:
         """

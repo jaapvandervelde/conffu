@@ -8,6 +8,11 @@ When next major version is released (3.x), these breaking changes will be applie
  - remove deprecated `no_arguments` from `.load()`
  - make `Config.shadow_attrs = True` the default 
 
+## [2.2.7] - 2021-08-27
+
+### Fixes
+  - Removed walrus assignment to allow for Python 3.4.4 compatibility, the last version of Python to work on Windows XP  
+
 ## [2.2.6] - 2021-08-27
 
 ### Changes
@@ -271,6 +276,7 @@ with cfg.direct:
   - First publicly released version after a major rewrite.
   
 [Unreleased]: /../../../
+[2.2.7]: /../../../tags/2.2.7
 [2.2.6]: /../../../tags/2.2.6
 [2.2.5]: /../../../tags/2.2.5
 [2.2.4]: /../../../tags/2.2.4
