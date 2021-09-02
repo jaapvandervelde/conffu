@@ -8,6 +8,11 @@ When next major version is released (3.x), these breaking changes will be applie
  - remove deprecated `no_arguments` from `.load()`
  - make `Config.shadow_attrs = True` the default 
 
+## [2.2.13] - 2021-09-02
+
+### Fixes
+  - aliases were not applied in standard cases
+
 ## [2.2.12] - 2021-08-27
 
 ### Added
@@ -285,6 +290,8 @@ with cfg.direct:
   - First publicly released version after a major rewrite.
   
 [Unreleased]: /../../../
+[2.2.13]: /../../../tags/2.2.13
+[2.2.12]: /../../../tags/2.2.12
 [2.2.11]: /../../../tags/2.2.11
 [2.2.10]: /../../../tags/2.2.10
 [2.2.6]: /../../../tags/2.2.6

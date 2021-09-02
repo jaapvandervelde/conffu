@@ -8,10 +8,6 @@ git push origin
 git tag %1
 git push github %1
 git push origin %1
-call script/cleanup.bat
-call script/build.bat
-twine upload dist/*
-call script/cleanup.bat
 goto end
 
 :tests_failed

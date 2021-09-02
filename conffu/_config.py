@@ -795,7 +795,7 @@ class DictConfig(dict):
         if not isinstance(cli_args, dict):
             arg_map = cls.ARG_MAP
             if aliases is not None:
-                arg_map.update(cls.ARG_MAP)
+                arg_map.update(aliases)
             return argv_to_dict(cli_args if isinstance(cli_args, list) else argv, arg_map)
         if isinstance(cli_args, defaultdict):
             # noinspection PyArgumentList
