@@ -48,6 +48,18 @@ class TestConfig(unittest.TestCase):
         cfg = Config().update_from_arguments(args)
         self.assertEqual(cfg['p'], 'foo/bar', msg='argument without parameters should be True in Config')
 
+    def test_list_argument(self):
+        args = argv_to_dict(['script.py', '0', '-a', '1', '2', '-b', '3', '4'])
+        cfg = Config({'b': 0}).update_from_arguments(args)
+        self.assertEqual(cfg['a'], ['1', '2'], msg='undefined argument gets assigned list')
+        self.assertEqual(cfg['b'], 3, msg='argument with non-iterable type does not get assigned list')
+        self.assertEqual(cfg.arguments[''], ['script.py', '0', '4'], msg='undefined argument gets assigned list')
+
+        args = argv_to_dict(['script.py', '0', '-a', '1', '2', '-b', '3', '4'])
+        cfg2 = Config({'b': 0}).update_from_arguments(args).update_from_arguments(args)
+        self.assertEqual(cfg, cfg2, msg='update_from_arguments is an idempotent method')
+
+
     def test_config_argument(self):
         args = argv_to_dict(['script.py', '-a'])
         cfg = Config().update_from_arguments(args)

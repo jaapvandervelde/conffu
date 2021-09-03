@@ -1,5 +1,7 @@
 @echo off
-call script/run_tests.bat
+REM change working directory to project root
+cd %~dp0\..
+call scripts/run_tests.bat
 if errorlevel 1 goto tests_failed
 git add .
 git commit -m "update %1

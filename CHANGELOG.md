@@ -8,6 +8,21 @@ When next major version is released (3.x), these breaking changes will be applie
  - remove deprecated `no_arguments` from `.load()`
  - make `Config.shadow_attrs = True` the default 
 
+For such a version these issues will be resolved:
+ - .copy() to actually render a full copy, instead of sharing data with the original
+
+## [2.2.14] - 2021-09-03
+
+### Changes
+  - Command-line arguments that would normally yield a list type, will now only match the first value if the value was predefined
+```python
+# here, the resulting cfg.a will be ['1', '2'], but cfg.b will be '3' and '4' will be part of cfg.arguments[''] 
+cfg = Config({'b': '0'}).update_from_arguments(['test', '-a', '1', '2', 'b', '3', '4'])
+```
+
+### Fixes
+  - `Config.arguments` would contain references to lists of arguments from `cli_args`, instead of copies
+
 ## [2.2.13] - 2021-09-02
 
 ### Fixes
@@ -290,6 +305,7 @@ with cfg.direct:
   - First publicly released version after a major rewrite.
   
 [Unreleased]: /../../../
+[2.2.14]: /../../../tags/2.2.14
 [2.2.13]: /../../../tags/2.2.13
 [2.2.12]: /../../../tags/2.2.12
 [2.2.11]: /../../../tags/2.2.11

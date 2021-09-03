@@ -7,6 +7,7 @@ if os_name == 'nt':
 from io import StringIO, BytesIO
 from collections import defaultdict, OrderedDict
 from pathlib import Path
+from copy import copy
 
 GLOBALS_KEY = '_globals'
 
@@ -801,11 +802,11 @@ class DictConfig(dict):
             # noinspection PyArgumentList
             return cli_args.__class__(
                 cli_args.default_factory,
-                {aliases[k] if aliases is not None and k in aliases else k: v for k, v in cli_args.items()})
+                {aliases[k] if aliases is not None and k in aliases else k: copy(v) for k, v in cli_args.items()})
         else:
             # noinspection PyArgumentList
             return cli_args.__class__(
-                {aliases[k] if aliases is not None and k in aliases else k: v for k, v in cli_args.items()})
+                {aliases[k] if aliases is not None and k in aliases else k: copy(v) for k, v in cli_args.items()})
 
     def parse_arguments(self, cli_args: Union[Dict[str, list], list] = None, aliases: Dict[str, str] = None):
         """
@@ -931,6 +932,7 @@ class DictConfig(dict):
         :return: None
         """
         # is k an existing key?
+        excess = []
         if k in self:
             # for bool, check specific non-True values
             if isinstance(self[k], bool):
@@ -938,6 +940,9 @@ class DictConfig(dict):
             else:
                 # for other types, cast to type of existing key
                 t = type(self[k])
+                if isinstance(v, (list, tuple)) and (t not in (list, tuple)):
+                    excess = list(v[1:])
+                    v = v[0]
                 try:
                     self[k] = t(v)
                 except ValueError:
@@ -946,6 +951,7 @@ class DictConfig(dict):
             # define new key
             self.from_arguments.append(k)
             self[k] = v
+        return excess
 
     def _set_globals_from_args(self, k, v):
         """
@@ -954,18 +960,26 @@ class DictConfig(dict):
         :param v: value to set
         :return: None
         """
+        excess = []
         if self.globals is None:
             self.globals = {}
         # for bool, check specific non-True values
         if k in self.globals and isinstance(self.globals[k], bool):
             self.globals[k] = v.lower() not in ['0', 'false']
         else:
-            # for other types, cast to type of existing key
-            t = type(self.globals[k]) if k in self.globals else type(v)
+            # for other types, cast to type of existing key and remove excess values for non-iterable predefined values
+            if k in self.globals:
+                t = type(self.globals[k])
+                if isinstance(v, (list, tuple)) and (t not in (list, tuple)):
+                    excess = list(v[1:])
+                    v = v[0]
+            else:
+                t = type(v)
             try:
                 self.globals[k] = t(v)
             except ValueError:
                 raise SyntaxError('Cannot cast {} to {} from arguments'.format(v, t))
+        return excess
 
     def update_from_arguments(self, cli_args: Union[Dict[str, list], list] = None, aliases: Dict[str, str] = None):
         """
@@ -993,13 +1007,19 @@ class DictConfig(dict):
                     update = self._set_value_from_args
                 # unpack single value lists
                 if len(value) == 1:
-                    update(key, value[0])
+                    excess = update(key, value[0])
                 elif not value:
                     # set to True for empty value
-                    update(key, True)
+                    excess = update(key, True)
                 else:
                     # set as list for multi-value
-                    update(key, value)
+                    excess = update(key, value)
+                if excess:
+                    self.arguments[''].extend(excess)
+                    self.arguments[key] = value[0]
+                    if cli_args is not None:
+                        cli_args[''].extend(excess)
+                        cli_args[key] = value[0]
 
         # allow chaining
         return self
