@@ -943,6 +943,8 @@ class DictConfig(dict):
                 if isinstance(v, (list, tuple)) and (t not in (list, tuple)):
                     excess = list(v[1:])
                     v = v[0]
+                if (t in (list, tuple)) and not isinstance(v, (list, tuple)):
+                    v = [v]
                 try:
                     self[k] = t(v)
                 except ValueError:
@@ -973,6 +975,8 @@ class DictConfig(dict):
                 if isinstance(v, (list, tuple)) and (t not in (list, tuple)):
                     excess = list(v[1:])
                     v = v[0]
+                if (t in (list, tuple)) and not isinstance(v, (list, tuple)):
+                    v = [v]
             else:
                 t = type(v)
             try:
@@ -1064,7 +1068,7 @@ class DictConfig(dict):
         elif defaults is None:
             return cls.load(require_file=False, **kwargs).full_update(**fu_kwargs)
         else:
-            return cls(defaults).update(
+            return cls(defaults, **kwargs).update(
                 cls.load(require_file=False, **kwargs)
             ).full_update(**fu_kwargs)
 

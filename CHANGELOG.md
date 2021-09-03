@@ -11,6 +11,12 @@ When next major version is released (3.x), these breaking changes will be applie
 For such a version these issues will be resolved:
  - .copy() to actually render a full copy, instead of sharing data with the original
 
+## [2.2.15] - 2021-09-03
+
+### Fixes
+  - some keyword arguments (like `no_key_error`) had no effect when passed through `.startup()`
+  - single strings on the command-line would be spread into predefined list parameters, instead of becoming single element lists 
+
 ## [2.2.14] - 2021-09-03
 
 ### Changes
@@ -305,6 +311,7 @@ with cfg.direct:
   - First publicly released version after a major rewrite.
   
 [Unreleased]: /../../../
+[2.2.15]: /../../../tags/2.2.15
 [2.2.14]: /../../../tags/2.2.14
 [2.2.13]: /../../../tags/2.2.13
 [2.2.12]: /../../../tags/2.2.12

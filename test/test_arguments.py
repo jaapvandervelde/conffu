@@ -59,6 +59,10 @@ class TestConfig(unittest.TestCase):
         cfg2 = Config({'b': 0}).update_from_arguments(args).update_from_arguments(args)
         self.assertEqual(cfg, cfg2, msg='update_from_arguments is an idempotent method')
 
+        args = argv_to_dict(['script.py', '-s', 'string', '-l', 'list'])
+        cfg = Config({'s': '', 'l': []}).update_from_arguments(args)
+        self.assertEqual(cfg['s'], 'string', msg='string does not get spread in to predefined list')
+        self.assertEqual(cfg['l'], ['list'], msg='string gets captured in predefined list')
 
     def test_config_argument(self):
         args = argv_to_dict(['script.py', '-a'])
