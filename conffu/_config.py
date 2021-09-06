@@ -936,7 +936,7 @@ class DictConfig(dict):
         if k in self:
             # for bool, check specific non-True values
             if isinstance(self[k], bool):
-                self[k] = v.lower() not in ['0', 'false']
+                self[k] = v if isinstance(v, bool) else v.lower() not in ['0', 'false']
             else:
                 # for other types, cast to type of existing key
                 t = type(self[k])
@@ -967,7 +967,7 @@ class DictConfig(dict):
             self.globals = {}
         # for bool, check specific non-True values
         if k in self.globals and isinstance(self.globals[k], bool):
-            self.globals[k] = v.lower() not in ['0', 'false']
+            self.globals[k] = v if isinstance(v, bool) else v.lower() not in ['0', 'false']
         else:
             # for other types, cast to type of existing key and remove excess values for non-iterable predefined values
             if k in self.globals:

@@ -11,6 +11,11 @@ When next major version is released (3.x), these breaking changes will be applie
 For such a version these issues will be resolved:
  - .copy() to actually render a full copy, instead of sharing data with the original
 
+## [2.2.16] - 2021-09-06
+
+### Fixes
+   - `bool` defaults could cause a type error when using `startup()`
+
 ## [2.2.15] - 2021-09-03
 
 ### Fixes
@@ -311,6 +316,7 @@ with cfg.direct:
   - First publicly released version after a major rewrite.
   
 [Unreleased]: /../../../
+[2.2.16]: /../../../tags/2.2.16
 [2.2.15]: /../../../tags/2.2.15
 [2.2.14]: /../../../tags/2.2.14
 [2.2.13]: /../../../tags/2.2.13
