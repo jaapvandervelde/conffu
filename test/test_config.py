@@ -119,6 +119,11 @@ class TestConfig(unittest.TestCase):
         cfg_a['c'] = cfg_b
         self.assertEqual('3', cfg_a.d, msg='parent globals are updated with new values from assigned config')
 
+    def test_globals_positional(self):
+        cfg = Config({'_globals': {'x': 1}, 'a': '{:.2f}', 'b': '{x} {:.2f} {x}'})
+        self.assertEqual('{:.2f}', cfg.a, msg='positional fields do not cause errors by themselves')
+        self.assertEqual('1 {:.2f} 1', cfg.b, msg='positional fields do not affect replacement of named fields')
+
     def test_shadow_attrs(self):
         cfg = Config()
         cfg.shadow_attrs = True

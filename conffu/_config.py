@@ -8,6 +8,7 @@ from io import StringIO, BytesIO
 from collections import defaultdict, OrderedDict
 from pathlib import Path
 from copy import copy
+from string import Formatter
 
 GLOBALS_KEY = '_globals'
 
@@ -281,20 +282,18 @@ class DictConfig(dict):
         """
         return dict.__getitem__(self, key)
 
-    class _Globals(dict):
-        """
-        Helper class for _subst_globals(), re-wrapping missing keys in {}
-        """
-        def __missing__(self, key: Hashable) -> str:
-            return '{{{}}}'.format(key)
-
     def _subst_globals(self, value: Any) -> Any:
         if self.globals is None or self.disable_globals:
             return value
         if isinstance(value, str):
             try:
-                return value.format_map(self._Globals(self.globals))
-            except AttributeError:
+                return ''.join(lit + (
+                    Formatter().convert_field(
+                        Formatter().format_field(self.globals[key], fmt), conv) if key in self.globals else
+                    '' if key is None else
+                    f'{{{key}{":" + fmt if fmt else ""}{":" + conv if conv else ""}}}'
+                ) for lit, key, fmt, conv in Formatter().parse(value))
+            except (ValueError, AttributeError):
                 return value
         elif isinstance(value, (list, tuple)):
             # noinspection PyArgumentList
