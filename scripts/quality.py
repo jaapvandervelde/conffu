@@ -1,5 +1,6 @@
 from logging import warning, error
 from os import chdir
+from sys import argv
 from pathlib import Path
 from subprocess import run
 import re
@@ -21,7 +22,13 @@ def check_file(name, critical=True, msg=''):
             error(f'Critical file {name} missing' if not msg else msg)
 
 
-def check_critical_files():
+def get_package_name():
+    with open('setup.py') as f:
+        setup = f.read()
+    return re.search(r"__name__\s*=\s*'(.+?)'", setup, re.DOTALL).group(1)
+
+
+def check_critical_files(package_name):
     return (
         check_file('setup.cfg') and
         check_file('setup.py') and
@@ -29,14 +36,14 @@ def check_critical_files():
         check_file('CHANGELOG.md') and
         check_file('.gitignore') and
         check_file('setup.cfg') and
-        check_file('conffu/_version.py') and
-        check_file('conffu/__init__.py')
+        check_file(f'{package_name}/_version.py') and
+        check_file(f'{package_name}/__init__.py')
     )
 
 
-def check_version():
+def check_version(package_name, arg_version):
     import importlib.util
-    spec = importlib.util.spec_from_file_location("_version", "conffu/_version.py")
+    spec = importlib.util.spec_from_file_location("_version", f"{package_name}/_version.py")
     _version = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(_version)
     # noinspection PyUnresolvedReferences
@@ -44,6 +51,10 @@ def check_version():
 
     result = True
     from packaging import version
+
+    if arg_version is not None and v != arg_version:
+        error(f'Version in _version.py {v} does not match specified version {arg_version}')
+        result = False
 
     with open('CHANGELOG.md', 'r') as f:
         changelog = f.read()
@@ -58,7 +69,7 @@ def check_version():
 
     for match in re.findall('\#\# \[([\d.]+?\w*)\] - \d{4}-\d{2}-\d{2}', changelog):
         if version.parse(match) > version.parse(v):
-            error(f'There is a later entry than {v}, {match} in CHANGELOG.md, check _version.py')
+            error(f'There is a later entry than {v}, namely {match} in CHANGELOG.md, check _version.py')
             result = False
 
     version_in_changelog = any(
@@ -78,10 +89,14 @@ def check_version():
 
 
 def main():
+    change_dir()
+
+    package_name = get_package_name()
+    arg_version = None if len(argv) != 2 else argv[1]
+
     ok = (
-        change_dir() and
-        check_critical_files() and
-        check_version()
+        check_critical_files(package_name) and
+        check_version(package_name, arg_version)
     )
     if not ok:
         exit(1)

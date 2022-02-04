@@ -11,6 +11,11 @@ When next major version is released (3.x), these breaking changes will be applie
 For such a version these issues will be resolved:
  - .copy() to actually render a full copy, instead of sharing data with the original
 
+## [2.2.18] - 2022-02-04
+
+### Fixes
+   - avoid keys from dictionaries or files initialising a new Config to be overwritten with attribute values in object initialisation; this allows having keys with names like 'parameters'
+
 ## [2.2.17] - 2022-02-03
 
 ### Fixes
@@ -321,6 +326,7 @@ with cfg.direct:
   - First publicly released version after a major rewrite.
   
 [Unreleased]: /../../../
+[2.2.18]: /../../../tags/2.2.18
 [2.2.17]: /../../../tags/2.2.17
 [2.2.16]: /../../../tags/2.2.16
 [2.2.15]: /../../../tags/2.2.15
