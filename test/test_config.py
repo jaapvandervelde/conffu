@@ -146,7 +146,6 @@ class TestConfig(unittest.TestCase):
         except KeyError:
             self.fail('get never raises a KeyError')
 
-
     def test_split_keys(self):
         cfg = Config({'test': {'nested': 1}})
         self.assertEqual(1, cfg['test.nested'], 'compound keys work as index')
@@ -174,6 +173,14 @@ class TestConfig(unittest.TestCase):
                          },
                          cfg.recursive_keys(),
                          'compound keys are generated in order, depth-first')
+
+    def test_compound_keys_globals(self):
+        cfg = Config({'_globals': {'x': 'foo'}, 'value': '{x} bar', 'ns': {'n': '{x}'}, 'ns2.n': '{x}'},
+                     no_compound_keys=True)
+        self.assertEqual('foo bar', cfg.value, 'globals work with compound keys disabled')
+        self.assertEqual('foo', cfg.ns.n, 'globals work with compound keys disabled, on nested elements')
+        with self.assertRaises(KeyError, msg='compound key will raise key error for nested when disabled'):
+            _ = cfg['ns.n']
 
     def test_copy(self):
         cfg = Config({'1': 2})

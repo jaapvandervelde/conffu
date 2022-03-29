@@ -127,7 +127,7 @@ class DictConfig(dict):
             self.globals = self.__class__(super(DictConfig, self).__getitem__(GLOBALS_KEY))
             del self[GLOBALS_KEY]
         self.disable_globals = False
-        self.filename = None
+        self.file_path = None
         self.arguments = None
         self.env_var_prefix = None
         self.cfg_filename = None
@@ -141,6 +141,10 @@ class DictConfig(dict):
     @property
     def direct(self):
         return _NoGlobalsProxy(self)
+
+    @property
+    def filename(self):
+        return None if self.file_path is None else str(self.file_path)
 
     def _dict_cast(self, a_dict: dict, from_type: type, to_type: type, skip_iterables: bool = False) -> dict:
         """
@@ -324,7 +328,7 @@ class DictConfig(dict):
         :raises KeyError: if the key cannot be found (and self.no_key_error is True, None otherwise)
         """
         if self.no_compound_keys:
-            return super(DictConfig, self).__getitem__(key)
+            return self._subst_globals(super(DictConfig, self).__getitem__(key))
 
         keys = self._split_key(key)
 
@@ -688,7 +692,7 @@ class DictConfig(dict):
                 if open_file:
                     source.close()
 
-        cfg.filename = filename
+        cfg.file_path = None if filename is None else Path(filename)
 
         return cfg
 

@@ -11,6 +11,14 @@ When next major version is released (3.x), these breaking changes will be applie
 For such a version these issues will be resolved:
  - .copy() to actually render a full copy, instead of sharing data with the original
 
+## [2.2.17] - 2021-09-07
+
+### Added
+   - `.file_path` property, with matching `Path` value for `.filename`
+
+### Fixes
+   - resolve globals where `no_compound_keys` is set, and keys would be compound otherwise
+
 ## [2.2.16] - 2021-09-06
 
 ### Fixes
@@ -316,6 +324,7 @@ with cfg.direct:
   - First publicly released version after a major rewrite.
   
 [Unreleased]: /../../../
+[2.2.17]: /../../../tags/2.2.17
 [2.2.16]: /../../../tags/2.2.16
 [2.2.15]: /../../../tags/2.2.15
 [2.2.14]: /../../../tags/2.2.14
