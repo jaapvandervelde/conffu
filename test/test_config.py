@@ -119,6 +119,11 @@ class TestConfig(unittest.TestCase):
         cfg_a['c'] = cfg_b
         self.assertEqual('3', cfg_a.d, msg='parent globals are updated with new values from assigned config')
 
+    def test_globals_positional(self):
+        cfg = Config({'_globals': {'x': 1}, 'a': '{:.2f}', 'b': '{x} {:.2f} {x}'})
+        self.assertEqual('{:.2f}', cfg.a, msg='positional fields do not cause errors by themselves')
+        self.assertEqual('1 {:.2f} 1', cfg.b, msg='positional fields do not affect replacement of named fields')
+
     def test_shadow_attrs(self):
         cfg = Config()
         cfg.shadow_attrs = True
@@ -127,6 +132,14 @@ class TestConfig(unittest.TestCase):
         cfg.b = 1
         cfg['b'] = 2
         self.assertEqual((2, 2, 2, 2), (cfg.a, cfg['a'], cfg.b, cfg['b']), msg='attributes can be shadowed')
+
+        cfg = Config()
+        cfg.shadow_attrs = False
+        cfg['a'] = 1
+        cfg.a = 2  # this still sets cfg['a']
+        cfg.b = 1
+        cfg['b'] = 2  # but this does not set cfg.b as it was set before
+        self.assertEqual((2, 2, 1, 2), (cfg.a, cfg['a'], cfg.b, cfg['b']), msg='unshadowed attributes retain value')
 
     def test_key_error(self):
         cfg = DictConfig({'test': 1})
@@ -277,6 +290,11 @@ class TestConfig(unittest.TestCase):
             self.assertEqual(2, len(dcfg.xs), 'can add to list while not using globals through direct')
             self.assertEqual('test', dcfg.xs[1], 'correct value added while not using globals through direct')
         self.assertTrue(cfg.disable_globals, 'still using globals outside context')
+
+    def test_shadow_attribute_initial_dict(self):
+        cfg = Config({'a': {'parameters': {'b': 1}}})  # parameters would conflict with self.parameters
+        self.assertEqual(1, cfg['a.parameters.b'], 'as key, content is preferred')
+        self.assertEqual(None, cfg.a.parameters, 'as attribute, attribute is preferred')
 
     def test_get(self):
         cfg = Config({'_globals':{'g': 2}, 'a': 1, 'b': '{g}', 'c': {'d': 3}})

@@ -4,6 +4,8 @@ cd %~dp0\..
 REM run tests, only continue if tests succeeded
 call scripts/run_tests.bat
 if errorlevel 1 goto tests_failed
+python scripts/quality.py
+if errorlevel 1 goto quality_failed
 REM cleanup, build and deploy
 call scripts/cleanup.bat
 python setup.py sdist
@@ -19,3 +21,6 @@ exit /b
 
 :tests_failed
 echo Some tests failed, please ensure no tests fail before trying to deploy. (and don't forget to commit and push first)
+
+:quality_failed
+echo Some critical quality check failed, please remedy before trying to deploy.

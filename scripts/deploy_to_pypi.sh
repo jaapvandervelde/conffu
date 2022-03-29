@@ -8,6 +8,12 @@ if [ $? -ne 0 ]
     echo "Some tests failed, please ensure no tests fail before trying to deploy. (and don't forget to commit and push first)"
     exit 1
 fi
+python3 ./scripts/quality.py
+if [ $? -ne 0 ]
+  then
+    echo "Some critical quality check failed, please remedy before trying to deploy."
+    exit 1
+fi
 # cleanup, build and deploy
 ./scripts/cleanup.sh
 python3 setup.py sdist

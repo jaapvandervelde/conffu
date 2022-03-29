@@ -8,6 +8,7 @@ from io import StringIO, BytesIO
 from collections import defaultdict, OrderedDict
 from pathlib import Path
 from copy import copy
+from string import Formatter
 
 GLOBALS_KEY = '_globals'
 
@@ -96,18 +97,26 @@ class DictConfig(dict):
         'request_header': 'rh', 'header': 'rh'
     }
 
+    def _init_attr(self, name, value):
+        """
+        Helper to avoid triggering attribute/key mapping during initialisation
+        :param name: name of the attribute to set
+        :param value: value to set it to
+        :return: None
+        """
+        super(DictConfig, self).__setattr__(name, value)
+
     def __init__(self, *args, no_globals: Union[bool, dict] = False, no_key_error: bool = False,
                  skip_lists: bool = False, no_compound_keys: bool = False, skip_iterables: bool = False):
         """
         Constructor method
         """
         super(DictConfig, self).__init__(*args)
-        self.no_compound_keys = no_compound_keys
-        self._casting = False  # overrides no_compound_keys during casting
-        self.no_key_error = no_key_error
-        if no_globals is None:
-            self.globals = None
-        elif no_globals:
+        self._init_attr('no_compound_keys', no_compound_keys)
+        self._init_attr('_casting', False)  # overrides no_compound_keys during casting
+        self._init_attr('no_key_error', no_key_error)
+        self._init_attr('globals', None)
+        if no_globals is not None and no_globals:
             if isinstance(no_globals, dict):
                 if isinstance(no_globals, DictConfig):
                     # copy the reference, if no_globals is already a Config
@@ -126,15 +135,17 @@ class DictConfig(dict):
             # cast _globals dict in self to self type
             self.globals = self.__class__(super(DictConfig, self).__getitem__(GLOBALS_KEY))
             del self[GLOBALS_KEY]
-        self.disable_globals = False
-        self.file_path = None
-        self.arguments = None
-        self.env_var_prefix = None
-        self.cfg_filename = None
-        self.parameters = None
-        self.from_arguments = []
+
+        self._init_attr('disable_globals', False)
+        self._init_attr('file_path', None)
+        self._init_attr('arguments', None)
+        self._init_attr('env_var_prefix', None)
+        self._init_attr('cfg_filename', None)
+        self._init_attr('parameters', None)
+        self._init_attr('from_arguments', [])
+
         # this attribute is only for the benefit of the Config subclass, which exposes it as a property
-        self._shadow_attrs = False
+        self._init_attr('_shadow_attrs', False)
         # replace dicts in Config with equivalent Config
         self._dicts_to_config(self, skip_iterables=skip_lists or skip_iterables)
 
@@ -285,20 +296,18 @@ class DictConfig(dict):
         """
         return dict.__getitem__(self, key)
 
-    class _Globals(dict):
-        """
-        Helper class for _subst_globals(), re-wrapping missing keys in {}
-        """
-        def __missing__(self, key: Hashable) -> str:
-            return '{{{}}}'.format(key)
-
     def _subst_globals(self, value: Any) -> Any:
         if self.globals is None or self.disable_globals:
             return value
         if isinstance(value, str):
             try:
-                return value.format_map(self._Globals(self.globals))
-            except AttributeError:
+                return ''.join(lit + (
+                    Formatter().convert_field(
+                        Formatter().format_field(self.globals[key], fmt), conv) if key in self.globals else
+                    '' if key is None else
+                    f'{{{key}{":" + fmt if fmt else ""}{":" + conv if conv else ""}}}'
+                ) for lit, key, fmt, conv in Formatter().parse(value))
+            except (ValueError, AttributeError):
                 return value
         elif isinstance(value, (list, tuple)):
             # noinspection PyArgumentList
@@ -1106,6 +1115,8 @@ class Config(DictConfig):
 
     def __setattr__(self, attr, value):
         # check if configuration items can shadow object attributes, not using hasattr, as it will call __getattr__
+        # if attr in dir(self), it's already an attribute - set if keys can't shadow attributes
+        # if attr not in self, it's not an attribute and not an existing key - set if keys can't shadow attributes
         if (attr in dir(self) or attr not in self) and (not hasattr(self, '_shadow_attrs') or not self._shadow_attrs):
             super(DictConfig, self).__setattr__(attr, value)
         else:

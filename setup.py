@@ -1,11 +1,29 @@
-import setuptools
-from conffu._version import __version__
+import os
+import re
+from setuptools import setup
 
-with open("README.md", "r") as fh:
-    long_description = fh.read()
+__name__ = 'conffu'
 
-setuptools.setup(
-    name="conffu",
+version_fn = os.path.join(__name__, "_version.py")
+__version__ = "unknown"
+try:
+    version_line = open(version_fn, "rt").read()
+except EnvironmentError:
+    pass  # no version file
+else:
+    version_regex = r"^__version__ = ['\"]([^'\"]*)['\"]"
+    m = re.search(version_regex, version_line, re.M)
+    if m:
+        __version__ = m.group(1)
+    else:
+        print(f'unable to find version in {version_fn}')
+        raise RuntimeError(f'If {version_fn} exists, it is required to be well-formed')
+
+with open("README.md", "r") as rm:
+    long_description = rm.read()
+
+setup(
+    name=__name__,
     packages=['conffu'],
     version=__version__,
     license='MIT',
@@ -17,9 +35,7 @@ setuptools.setup(
     url='https://gitlab.com/Jaap.vanderVelde/conffu',
     download_url='https://gitlab.com/Jaap.vanderVelde/conffu/repository/archive.zip?ref='+__version__,
     keywords=['package', 'download', 'json', 'configuration', 'CLI', 'parameters'],
-    extras_require={
-        'xml': ['lxml>=4.6.0']
-    },
+    install_requires=[],
     classifiers=[
         'Development Status :: 4 - Beta',
         'Intended Audience :: Developers',
@@ -27,5 +43,10 @@ setuptools.setup(
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python :: 3.4',
     ],
+    extras_require={
+        'xml': ['lxml>=4.6.0'],
+        'dev': ['mkdocs']
+    },
     python_requires='>=3.4',
+    include_package_data=False
 )
