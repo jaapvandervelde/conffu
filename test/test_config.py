@@ -298,6 +298,13 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(cfg['p'], 'foo/bar', msg='argument without parameters should be True in Config')
         self.assertEqual(cfg['sub']['x'], 'foo/qux', msg='argument without parameters should be True in Config')
 
+    def test_set_global_propagation(self):
+        args = argv_to_dict(['script.py', '-{root}', 'foo', '-p', '{root}/bar'])
+        cfg = Config({"_globals": {"root": "baz"}, "sub": {"x": "{root}/qux"}}).update_from_arguments(args)
+        cfg.set_global('root', 'quux')
+        self.assertEqual(cfg['p'], 'quux/bar', msg='updated global works')
+        self.assertEqual(cfg['sub']['x'], 'quux/qux', msg='updated global propagated')
+
     def test_shadow_attribute_initial_dict(self):
         cfg = Config({'a': {'parameters': {'b': 1}}})  # parameters would conflict with self.parameters
         self.assertEqual(1, cfg['a.parameters.b'], 'as key, content is preferred')

@@ -11,10 +11,15 @@ When next major version is released (3.x), these breaking changes will be applie
 For such a version these issues will be resolved:
  - .copy() to actually render a full copy, instead of sharing data with the original
 
-## [2.2.20] - 2021-04-08
+## [2.2.21] - 2021-04-08
+
+### Added
+  - propagate global value when set with `.set_global`
 
 ### Fixes
   - remove unused attribute `cfg_filename`; (`filename` property derives from `file_path` `Path()` object)
+  - call `.set_global` when updating globals from arguments
+  - call `.set_global` when updating globals from environment
 
 ### Changes
   - intialise blank `globals` to `{}` instead of `None`, to promote correct update from command line during startup 
@@ -342,7 +347,7 @@ with cfg.direct:
   - First publicly released version after a major rewrite.
   
 [Unreleased]: /../../../
-[2.2.20]: /../../../tags/2.2.20
+[2.2.21]: /../../../tags/2.2.21
 [2.2.19]: /../../../tags/2.2.19
 [2.2.18]: /../../../tags/2.2.18
 [2.2.17]: /../../../tags/2.2.17

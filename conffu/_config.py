@@ -876,7 +876,7 @@ class DictConfig(dict):
                         if v[0] == '{' and v[-1] == '}':
                             environment[('_globals', v[1:-1])] = getenv(var_name)
                             if self.globals:
-                                self.globals = {}
+                                self.globals = self.__class__({})
                             self.globals[v[1:-1]] = None
                         elif v in recursive_keys:
                             environment[recursive_keys[v]] = getenv(var_name)
@@ -888,8 +888,6 @@ class DictConfig(dict):
                     if (getenv('{{{}}}'.format(key)) is not None and
                             self._case_safe(key, exclude_vars) not in exclude_vars):
                         environment[('_globals', key)] = getenv('{{{}}}'.format(key))
-                        if not self.globals:
-                            self.globals = {}
         else:
             # check if the given keys are in the environment (and not excluded)
             for key in env_vars:
@@ -897,8 +895,8 @@ class DictConfig(dict):
                     if (getenv(self.env_var_prefix + key) is not None and
                             self._case_safe(key, exclude_vars) not in exclude_vars):
                         environment[('_globals', key)] = getenv(self.env_var_prefix + key)
-                        if not self.globals:
-                            self.globals = {}
+                        if not self.globals and not isinstance(self.globals, self.__class__):
+                            self.globals = self.__class__({})
                 else:
                     key = self._case_safe(key, recursive_keys)
                     if (getenv(self.env_var_prefix + key) is not None and
@@ -913,6 +911,7 @@ class DictConfig(dict):
         # perform update with constructed environment (not using compound keys, for simplicity)
         for keys, value in environment.items():
             if keys[0] == '_globals':
+                f = self.set_global
                 d = self.globals
                 if keys[-1] not in d:
                     continue
@@ -920,16 +919,17 @@ class DictConfig(dict):
                 d = self
                 for key in keys[:-1]:
                     d = d[key]
+                f = d.__setitem__
             key = keys[-1]
 
             # for bool, check specific non-True values
             if isinstance(d[key], bool):
-                d[keys[-1]] = value.lower() not in ['0', 'false']
+                f(keys[-1], value.lower() not in ['0', 'false'])
             else:
                 # for other types, cast to type of existing key, or str if None
                 t = str if d[key] is None else type(d[key])
                 try:
-                    d[keys[-1]] = t(value)
+                    f(keys[-1], t(value))
                 except ValueError:
                     raise SyntaxError('Cannot cast {} to {} from environment'.format(value, t))
 
@@ -967,7 +967,7 @@ class DictConfig(dict):
             self[k] = v
         return excess
 
-    def _set_globals_from_args(self, k, v):
+    def _set_globals_from_args(self, k: str, v: Any):
         """
         helper function used by .update_from_arguments()
         :param k: key for value to set
@@ -975,11 +975,11 @@ class DictConfig(dict):
         :return: None
         """
         excess = []
-        if not self.globals:
-            self.globals = {}
+        if not self.globals and not isinstance(self.globals, self.__class__):
+            self.globals = self.__class__({})
         # for bool, check specific non-True values
         if k in self.globals and isinstance(self.globals[k], bool):
-            self.globals[k] = v if isinstance(v, bool) else v.lower() not in ['0', 'false']
+            self.set_global(k, v if isinstance(v, bool) else v.lower() not in ['0', 'false'])
         else:
             # for other types, cast to type of existing key and remove excess values for non-iterable predefined values
             if k in self.globals:
@@ -992,10 +992,16 @@ class DictConfig(dict):
             else:
                 t = type(v)
             try:
-                self.globals[k] = t(v)
+                self.set_global(k, t(v))
             except ValueError:
                 raise SyntaxError('Cannot cast {} to {} from arguments'.format(v, t))
         return excess
+
+    def set_global(self, key: str, value: Any):
+        self.globals[key] = value
+        for k, v in self.items():
+            if isinstance(v, DictConfig) and k != '_globals':
+                v.set_global(key, value)
 
     def update_from_arguments(self, cli_args: Union[Dict[str, list], list] = None, aliases: Dict[str, str] = None):
         """

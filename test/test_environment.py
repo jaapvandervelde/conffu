@@ -42,8 +42,10 @@ class TestConfig(unittest.TestCase):
         self.assertIsInstance(cfg['c d'], str)
 
     def test_environment_globals(self):
-        cfg = Config({'_globals': {'g': 'baz'}, 'template': 'bar{g}bar'}).update_from_environment()
+        cfg = Config({'_globals': {'g': 'baz'}, 'template': 'bar{g}bar', 'qux': {'quux': 'bar{g}bar'}}
+                     ).update_from_environment()
         self.assertEqual('barfoobar', cfg['template'], msg='globals get picked up from environment in braces')
+        self.assertEqual('barfoobar', cfg['qux']['quux'], msg='globals get picked up recursively')
 
     def test_environment_prefix(self):
         cfg = Config({'a': '1', 'x': 'x'}).update_from_environment(env_var_prefix='pf_')
