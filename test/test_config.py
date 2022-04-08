@@ -1,5 +1,6 @@
 import unittest
 from conffu import DictConfig, Config
+from conffu._config import argv_to_dict
 
 
 class TestConfig(unittest.TestCase):
@@ -290,6 +291,12 @@ class TestConfig(unittest.TestCase):
             self.assertEqual(2, len(dcfg.xs), 'can add to list while not using globals through direct')
             self.assertEqual('test', dcfg.xs[1], 'correct value added while not using globals through direct')
         self.assertTrue(cfg.disable_globals, 'still using globals outside context')
+
+    def test_inherit_changed_globals(self):
+        args = argv_to_dict(['script.py', '-{root}', 'foo', '-p', '{root}/bar'])
+        cfg = Config({"_globals": {"root": "baz"}, "sub": {"x": "{root}/qux"}}).update_from_arguments(args)
+        self.assertEqual(cfg['p'], 'foo/bar', msg='argument without parameters should be True in Config')
+        self.assertEqual(cfg['sub']['x'], 'foo/qux', msg='argument without parameters should be True in Config')
 
     def test_shadow_attribute_initial_dict(self):
         cfg = Config({'a': {'parameters': {'b': 1}}})  # parameters would conflict with self.parameters

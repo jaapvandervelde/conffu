@@ -115,8 +115,8 @@ class DictConfig(dict):
         self._init_attr('no_compound_keys', no_compound_keys)
         self._init_attr('_casting', False)  # overrides no_compound_keys during casting
         self._init_attr('no_key_error', no_key_error)
-        self._init_attr('globals', None)
-        if no_globals is not None and no_globals:
+        self._init_attr('globals', {})
+        if no_globals:
             if isinstance(no_globals, dict):
                 if isinstance(no_globals, DictConfig):
                     # copy the reference, if no_globals is already a Config
@@ -125,12 +125,12 @@ class DictConfig(dict):
                     # any other dict type will be cast (and thus copied) to type of self, with default settings
                     self.globals = self.__class__(no_globals)
             else:
-                self.globals = None
+                self.globals = {}
         elif GLOBALS_KEY not in self or not isinstance(super(DictConfig, self).__getitem__(GLOBALS_KEY), dict):
             # globals as part of a config only work if they are in the config and are actually a dict (or a Config)
             if GLOBALS_KEY in self:
                 del self[GLOBALS_KEY]
-            self.globals = None
+            self.globals = {}
         else:
             # cast _globals dict in self to self type
             self.globals = self.__class__(super(DictConfig, self).__getitem__(GLOBALS_KEY))
@@ -140,7 +140,6 @@ class DictConfig(dict):
         self._init_attr('file_path', None)
         self._init_attr('arguments', None)
         self._init_attr('env_var_prefix', None)
-        self._init_attr('cfg_filename', None)
         self._init_attr('parameters', None)
         self._init_attr('from_arguments', [])
 
@@ -297,7 +296,7 @@ class DictConfig(dict):
         return dict.__getitem__(self, key)
 
     def _subst_globals(self, value: Any) -> Any:
-        if self.globals is None or self.disable_globals:
+        if not self.globals or self.disable_globals:
             return value
         if isinstance(value, str):
             try:
@@ -437,7 +436,7 @@ class DictConfig(dict):
                 new_globals = value.globals.copy()
                 new_globals.update(self.globals)
                 # update the main globals to match
-                if self.globals is not None:
+                if self.globals:
                     self.globals.update(new_globals)
                 else:
                     self.globals = new_globals
@@ -474,7 +473,7 @@ class DictConfig(dict):
         # recurse into the copy, replacing DictConfig with dict
         self._configs_to_dict(result, skip_iterables=skip_iterables or skip_lists)
         if with_globals:
-            result[GLOBALS_KEY] = dict(self.globals) if self.globals is not None else {}
+            result[GLOBALS_KEY] = dict(self.globals)
         return result
 
     def copy(self) -> 'DictConfig':
@@ -487,9 +486,9 @@ class DictConfig(dict):
     def update(self, other: Mapping = None, **kwargs) -> 'DictConfig':
         if other is not None:
             if hasattr(other, 'globals'):
-                if self.globals is not None:
+                if self.globals:
                     self.globals.update(other.globals)
-                elif other.globals is not None:
+                elif other.globals:
                     self.globals = other.globals.copy()
             for k, v in other.items():
                 if k in self and isinstance(self[k], DictConfig):
@@ -574,7 +573,7 @@ class DictConfig(dict):
             for x in item:
                 node.append(cls._cfg2xml(x, '_'+tag, etree))
         elif isinstance(item, dict):
-            if cfg_globals is not None:
+            if cfg_globals:
                 node.append(cls._cfg2xml(cfg_globals, '_globals', etree))
             if exclude is None:
                 exclude = []
@@ -876,7 +875,7 @@ class DictConfig(dict):
                         v = var_name[(len(self.env_var_prefix)):]
                         if v[0] == '{' and v[-1] == '}':
                             environment[('_globals', v[1:-1])] = getenv(var_name)
-                            if self.globals is None:
+                            if self.globals:
                                 self.globals = {}
                             self.globals[v[1:-1]] = None
                         elif v in recursive_keys:
@@ -884,12 +883,12 @@ class DictConfig(dict):
                         else:
                             environment[v] = getenv(var_name)
                             self[v] = None
-            elif self.globals is not None:
+            elif self.globals:
                 for key in self.globals:
                     if (getenv('{{{}}}'.format(key)) is not None and
                             self._case_safe(key, exclude_vars) not in exclude_vars):
                         environment[('_globals', key)] = getenv('{{{}}}'.format(key))
-                        if self.globals is None:
+                        if not self.globals:
                             self.globals = {}
         else:
             # check if the given keys are in the environment (and not excluded)
@@ -898,7 +897,7 @@ class DictConfig(dict):
                     if (getenv(self.env_var_prefix + key) is not None and
                             self._case_safe(key, exclude_vars) not in exclude_vars):
                         environment[('_globals', key)] = getenv(self.env_var_prefix + key)
-                        if self.globals is None:
+                        if not self.globals:
                             self.globals = {}
                 else:
                     key = self._case_safe(key, recursive_keys)
@@ -976,7 +975,7 @@ class DictConfig(dict):
         :return: None
         """
         excess = []
-        if self.globals is None:
+        if not self.globals:
             self.globals = {}
         # for bool, check specific non-True values
         if k in self.globals and isinstance(self.globals[k], bool):
