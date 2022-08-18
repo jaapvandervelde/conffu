@@ -39,6 +39,11 @@ class TestConfig(unittest.TestCase):
         self.assertEqual({'': ['script.py'], 'a': ['1', '2'], 'b': ['a b  c ']}, args,
                          msg='switch argument parameters get assigned to argument')
 
+    def test_argv_to_dict_parameters_quoted(self):
+        args = argv_to_dict(['script.py', '-a', '-a text starting with dash in quotes'])
+        self.assertEqual({'': ['script.py'], 'a': ['-a text starting with dash in quotes']}, args,
+                         msg='quoted argument with spaces is a value, not an argument')
+
     def test_config_compound_key(self):
         cfg = Config({'a': {'b': 'foo'}})
         self.assertEqual(cfg['a.b'], 'foo', msg='vales in nested configuration should be accessible by compound key')
