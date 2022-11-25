@@ -1,6 +1,6 @@
 from re import split, sub
 from typing import DefaultDict, Dict, Union, TextIO, List, Any, Generator, Tuple, Iterable, Mapping, Hashable, Type
-from sys import argv, version_info
+from sys import argv
 from os import getenv, name as os_name, environ as os_environ
 if os_name == 'nt':
     from nt import environ as nt_environ
@@ -360,13 +360,19 @@ class DictConfig(dict):
                     raise KeyError('Multi-part key, but `{}` is not a dictionary or Config.'.format(keys[0]))
             return self._subst_globals(super(DictConfig, self).__getitem__(keys[0]))
 
-    def get(self, key: Hashable, default: Any = None) -> Any:
+    def get(self, key: Hashable, default: Any = None, no_case: bool = False) -> Any:
         """
         Override of get() that takes globals and compound keys into account
         :param key: dict key of item to get
         :param default: default to return if key is not found
+        :param no_case: whether to ignore case when searching for key
         :return: self[key]
         """
+        if no_case and isinstance(key, str):
+            for k in self.keys():
+                if k.lower() == key.lower():
+                    key = k
+                    break
         if key not in self:
             return default
         try:

@@ -11,6 +11,11 @@ When next major version is released (3.x), these breaking changes will be applie
 For such a version these issues will be resolved:
  - .copy() to actually render a full copy, instead of sharing data with the original
 
+## [2.2.23] - 2022-11-25
+
+### Added
+  - allow case-insensitive lookup when using explicit `.get(.., no_case=True)`
+
 ## [2.2.22] - 2021-08-18
 
 ### Changes
@@ -352,6 +357,7 @@ with cfg.direct:
   - First publicly released version after a major rewrite.
   
 [Unreleased]: /../../../
+[2.2.23]: /../../../tags/2.2.23
 [2.2.22]: /../../../tags/2.2.22
 [2.2.21]: /../../../tags/2.2.21
 [2.2.19]: /../../../tags/2.2.19

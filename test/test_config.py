@@ -413,6 +413,15 @@ class TestConfig(unittest.TestCase):
         self.assertEqual('4', cfg.c, 'added global for update with globals')
         self.assertEqual('134', cfg.d, 'correct global substitutions for newly added keys after update with globals')
 
+    def test_no_case_keys(self):
+        cfg = Config({'a': 1, 'B': 2, 'c': 3, 'C': 4})
+        self.assertEqual((1, 2), (cfg.get('a', None), cfg.get('B', None)),
+                         'case-sensitive keys work as expected')
+        self.assertEqual((None, None), (cfg.get('A'), cfg.get('b')),
+                         'case-sensitive keys work as expected when missed')
+        self.assertEqual((1, 2), (cfg.get('A', None, no_case=True), cfg.get('b', None, no_case=True)),
+                         'non-case-sensitive keys work as expected')
+
 
 if __name__ == '__main__':
     unittest.main()
